@@ -9,7 +9,7 @@ import { closeMinigame } from './minigames.js';
 
 export function initMultiplayer(gameEngine) {
   // Server URL - use environment variable or default
-  const SERVER_URL = 'ws://localhost:3000';
+  const SERVER_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
   
   // Initialize multiplayer mode
   gameEngine.startMultiplayerMode = function(mode) {
