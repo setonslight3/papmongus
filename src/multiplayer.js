@@ -2,7 +2,7 @@
 import { NetworkManager } from './network.js';
 import { RemotePlayer, Player } from './entity.js';
 import { GameMap } from './map.js';
-import { CONTROLS, TILE_SIZE } from './config.js';
+import { CONTROLS, TILE_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT } from './config.js';
 import { updateTasksHUD } from './tasks.js';
 import { playRoleReveal } from './audio.js';
 
@@ -161,7 +161,7 @@ export function initMultiplayer(gameEngine) {
       const localPlayerData = data.gameState.players.find(p => p.id === this.localPlayerId);
       if (localPlayerData) {
         const localPlayer = new Player(
-          this.localPlayerId,
+          'P1', // Always P1 internally for compatibility with main.js loops
           localPlayerData.x,
           localPlayerData.y,
           localPlayerData.color,
@@ -185,10 +185,10 @@ export function initMultiplayer(gameEngine) {
           const remotePlayer = new RemotePlayer(
             playerData.id,
             playerData.nickname,
-            playerData.color
+            playerData.color,
+            playerData.x,
+            playerData.y
           );
-          remotePlayer.x = playerData.x;
-          remotePlayer.y = playerData.y;
           remotePlayer.equippedHat = playerData.equippedHat;
           remotePlayer.isImpostor = playerData.isImpostor;
           this.remotePlayers.set(playerData.id, remotePlayer);
@@ -207,6 +207,18 @@ export function initMultiplayer(gameEngine) {
     
     // State synchronization
     nm.on('STATE_SYNC', (data) => {
+      // 1. Sync local player alive state
+      const localPlayerData = data.players.find(p => p.id === this.localPlayerId);
+      if (localPlayerData) {
+        const localPlayer = this.entities.find(e => e.id === 'P1');
+        if (localPlayer) {
+          if (!localPlayerData.isAlive && !localPlayer.isDead) {
+            localPlayer.isDead = true;
+            localPlayer.isGhost = true;
+          }
+        }
+      }
+
       // Update remote player positions
       for (const playerData of data.players) {
         if (playerData.id === this.localPlayerId) continue;
@@ -216,11 +228,16 @@ export function initMultiplayer(gameEngine) {
           remotePlayer = new RemotePlayer(
             playerData.id,
             playerData.nickname,
-            playerData.color
+            playerData.color,
+            playerData.x,
+            playerData.y
           );
-          remotePlayer.equippedHat = playerData.equippedHat;
           this.remotePlayers.set(playerData.id, remotePlayer);
         }
+        
+        remotePlayer.isDead = !playerData.isAlive;
+        remotePlayer.equippedHat = playerData.equippedHat;
+        remotePlayer.color = playerData.color;
         
         remotePlayer.updatePosition(
           playerData.x,
@@ -236,16 +253,28 @@ export function initMultiplayer(gameEngine) {
     nm.on('KILL_CONFIRMED', (data) => {
       console.log('Kill confirmed:', data.killerId, 'killed', data.victimId);
       // Add dead body
+      const victimColor = (data.victimId === this.localPlayerId)
+        ? (this.entities.find(e => e.id === 'P1')?.color || '#ffffff')
+        : (this.remotePlayers.get(data.victimId)?.color || '#ffffff');
+
       this.deadBodies.push({
         x: data.bodyX,
         y: data.bodyY,
-        color: this.remotePlayers.get(data.victimId)?.color || '#ffffff'
+        color: victimColor
       });
       
       // Mark player as dead
-      const victim = this.remotePlayers.get(data.victimId);
-      if (victim) {
-        victim.isDead = true;
+      if (data.victimId === this.localPlayerId) {
+        const localPlayer = this.entities.find(e => e.id === 'P1');
+        if (localPlayer) {
+          localPlayer.isDead = true;
+          localPlayer.isGhost = true;
+        }
+      } else {
+        const victim = this.remotePlayers.get(data.victimId);
+        if (victim) {
+          victim.isDead = true;
+        }
       }
     });
     
@@ -257,19 +286,82 @@ export function initMultiplayer(gameEngine) {
     nm.on('MEETING_TRIGGERED', (data) => {
       console.log('Meeting triggered by', data.reporterId);
       this.gameState = 'MEETING';
-      // Show meeting UI
+      
+      // Get all players
+      const allPlayers = [...this.entities, ...this.remotePlayers.values()];
+      
+      // Find reporter player
+      const reporter = allPlayers.find(p => p.id === data.reporterId || (p.id === 'P1' && data.reporterId === this.localPlayerId));
+      
+      // Find victim player
+      let victim = null;
+      if (data.bodyId) {
+        victim = allPlayers.find(p => p.id === data.bodyId || (p.id === 'P1' && data.bodyId === this.localPlayerId));
+      }
+      
+      // Open the meeting UI
+      if (window.startMeeting) {
+        window.startMeeting(allPlayers, reporter, !!data.bodyId, () => {}, victim);
+      }
     });
     
     nm.on('VOTING_RESULTS', (data) => {
       console.log('Voting results:', data);
-      this.gameState = 'PLAYING';
-      // Show ejection animation
+      
+      // Hide meeting UI
+      document.getElementById('meeting-overlay').classList.add('hidden');
+      
+      // Build ejection animation stars
+      const stars = [];
+      for (let i = 0; i < 40; i++) {
+        stars.push({
+          x: Math.random() * SCREEN_WIDTH,
+          y: Math.random() * SCREEN_HEIGHT,
+          speed: Math.random() * 2 + 1,
+          size: Math.random() * 2
+        });
+      }
+      
+      // Find ejected player
+      let ejectedEntity = null;
+      if (data.ejectedId) {
+        if (data.ejectedId === this.localPlayerId) {
+          ejectedEntity = this.entities.find(e => e.id === 'P1');
+        } else {
+          ejectedEntity = this.remotePlayers.get(data.ejectedId);
+        }
+      }
+      
+      if (ejectedEntity) {
+        ejectedEntity.isDead = true;
+        ejectedEntity.isGhost = true;
+      }
+      
+      this.ejectData = {
+        entity: ejectedEntity,
+        isSkip: data.isTie || !data.ejectedId,
+        isTie: data.isTie,
+        timer: 3000,
+        stars: stars
+      };
+      
+      this.gameState = 'EJECTING';
     });
     
     nm.on('GAME_ENDED', (data) => {
       console.log('Game ended:', data.winner);
       this.gameState = 'GAMEOVER';
-      // Show results screen
+      
+      // Determine banner: victory/defeat
+      const p1 = this.entities.find(e => e.id === 'P1');
+      const crewWon = data.winner === 'crew';
+      let banner = crewWon ? 'victory' : 'defeat';
+      if (p1 && p1.isImpostor) {
+        banner = crewWon ? 'defeat' : 'victory';
+      }
+      
+      // Show game over screen (use existing gameEngine triggerGameOver method)
+      this.triggerGameOver(banner, crewWon ? 'The Impostors have been ejected!' : 'The Impostors took over the ship!');
     });
     
     // Customization
@@ -362,7 +454,7 @@ export function initMultiplayer(gameEngine) {
     this.lastPositionUpdate = now;
     
     // Find local player
-    const localPlayer = this.entities.find(e => e.id === this.localPlayerId);
+    const localPlayer = this.entities.find(e => e.id === 'P1');
     if (!localPlayer) return;
     
     this.networkManager.send('POSITION_UPDATE', {

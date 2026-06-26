@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>papmongus - Among Us from Scratch</title>
-  <script type="module" crossorigin src="/assets/index-CHzL9nUQ.js"></script>
+  <script type="module" crossorigin src="/assets/index-DJRu2tL9.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-DEdK6fLT.css">
 </head>
 <body>
@@ -176,6 +176,40 @@
           <button id="upload-btn" class="btn primary-btn">START TRANSFER</button>
         </div>
       </div>
+
+      <!-- 4. Asteroids Game -->
+      <div id="asteroids-game" class="minigame-container hidden">
+        <h2>Clear Asteroids</h2>
+        <canvas id="asteroids-canvas" width="450" height="320"></canvas>
+        <div id="asteroids-counter" style="color:#aaa;text-align:center;margin-top:6px;font-size:13px;">Asteroids destroyed: 0 / 10</div>
+      </div>
+
+      <!-- 5. Fuel Engines Game -->
+      <div id="fuel-game" class="minigame-container hidden">
+        <h2>Fuel Engines</h2>
+        <div class="fuel-console" style="text-align:center;">
+          <div style="position:relative;width:80px;height:240px;border:3px solid #556;border-radius:6px;margin:0 auto;background:#111;">
+            <div id="fuel-fill" style="position:absolute;bottom:0;width:100%;background:linear-gradient(to top,#f39c12,#e67e22);border-radius:0 0 4px 4px;transition:height 0.05s;"></div>
+          </div>
+          <button id="fuel-btn" class="btn primary-btn" style="margin-top:12px;">HOLD TO FUEL</button>
+          <div id="fuel-status" style="color:#aaa;margin-top:6px;font-size:13px;">Hold the button to fill the tank</div>
+        </div>
+      </div>
+
+      <!-- 6. Clean Leaves Game -->
+      <div id="leaves-game" class="minigame-container hidden">
+        <h2>Clean Filter</h2>
+        <canvas id="leaves-canvas" width="450" height="320"></canvas>
+        <div id="leaves-counter" style="color:#aaa;text-align:center;margin-top:6px;font-size:13px;">Leaves remaining: 6</div>
+      </div>
+
+      <!-- 7. Calibrate Distributor Game -->
+      <div id="calibrate-game" class="minigame-container hidden">
+        <h2>Calibrate Distributor</h2>
+        <canvas id="calibrate-canvas" width="450" height="320"></canvas>
+        <div id="calibrate-status" style="color:#aaa;text-align:center;margin-top:6px;font-size:13px;">Click when the spinner aligns with the target</div>
+      </div>
+
     </div>
   </div>
 

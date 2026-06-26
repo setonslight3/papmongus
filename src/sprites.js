@@ -324,3 +324,8 @@ export function drawDeadBody(ctx, x, y, color) {
   ctx.restore();
 }
 
+if (typeof window !== 'undefined') {
+  window.drawCrewmate = drawCrewmate;
+  window.drawDeadBody = drawDeadBody;
+}
+

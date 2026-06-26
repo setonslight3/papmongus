@@ -2144,6 +2144,14 @@ class GameEngine {
       }
     });
 
+    if (this.isMultiplayer && player.isGhost) {
+      this.remotePlayers.forEach(remotePlayer => {
+        if (remotePlayer.isDead) {
+          drawCrewmate(this.ctx, remotePlayer.x, remotePlayer.y, remotePlayer.color, remotePlayer.isFacingLeft, remotePlayer.isMoving, false, true, remotePlayer.nickname, remotePlayer.equippedHat);
+        }
+      });
+    }
+
     this.ctx.restore(); // Remove offset translation
 
 
@@ -2289,5 +2297,5 @@ class GameEngine {
 
 // Instantiate engine when DOM is ready
 window.addEventListener('DOMContentLoaded', () => {
-  new GameEngine();
+  window.game = new GameEngine();
 });

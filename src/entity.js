@@ -448,12 +448,12 @@ export class AIBot extends BaseEntity {
 
 // Remote Player - Represents a networked player with interpolation
 export class RemotePlayer extends BaseEntity {
-  constructor(id, nickname, color) {
-    super(id, 0, 0, color, nickname, false);
+  constructor(id, nickname, color, x = 0, y = 0) {
+    super(id, x, y, color, nickname, false);
     
     // Target position from server
-    this.targetX = 0;
-    this.targetY = 0;
+    this.targetX = x;
+    this.targetY = y;
     this.lastUpdateTimestamp = Date.now();
     
     // Interpolation

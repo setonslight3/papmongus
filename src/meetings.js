@@ -132,7 +132,11 @@ export function startMeeting(entities, reporter, bodyFound, onComplete, reported
 
   buildVotingCards();
   startTimer();
-  runBotDiscussion(bodyFound, suspectEntity);
+  if (window.game && window.game.isMultiplayer) {
+    // No bot discussion in multiplayer mode
+  } else {
+    runBotDiscussion(bodyFound, suspectEntity);
+  }
 }
 
 function buildVotingCards() {
@@ -238,6 +242,19 @@ function castVote(voterId, targetId) {
   // Can't vote if dead
   const voter = meetingState.entities.find(e => e.id === voterId);
   if (!voter || voter.isDead || meetingState.hasVoted[voterId]) return;
+
+  if (window.game && window.game.isMultiplayer) {
+    // In multiplayer, send vote to server
+    window.game.sendActionEvent('vote', { targetId: targetId });
+    meetingState.votes[voterId] = targetId;
+    meetingState.hasVoted[voterId] = true;
+    const badge = document.getElementById(`vote-badge-${voterId}`);
+    if (badge) {
+      badge.innerText = 'VOTED';
+      badge.className = 'vote-badge voted';
+    }
+    return;
+  }
 
   meetingState.votes[voterId] = targetId;
   meetingState.hasVoted[voterId] = true;
@@ -526,4 +543,9 @@ function resolveMeeting() {
       });
     }
   }, 3500);
+}
+
+if (typeof window !== 'undefined') {
+  window.startMeeting = startMeeting;
+  window.initMeetingUI = initMeetingUI;
 }
