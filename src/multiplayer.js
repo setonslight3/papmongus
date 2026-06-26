@@ -1,6 +1,10 @@
 // Multiplayer extension for GameEngine
 import { NetworkManager } from './network.js';
-import { RemotePlayer } from './entity.js';
+import { RemotePlayer, Player } from './entity.js';
+import { GameMap } from './map.js';
+import { CONTROLS, TILE_SIZE } from './config.js';
+import { updateTasksHUD } from './tasks.js';
+import { playRoleReveal } from './audio.js';
 
 export function initMultiplayer(gameEngine) {
   // Server URL - use environment variable or default
@@ -131,11 +135,48 @@ export function initMultiplayer(gameEngine) {
     // Game start
     nm.on('GAME_STARTED', (data) => {
       console.log('Game started! Role:', data.role);
-      this.gameState = 'PLAYING';
       
-      // Hide lobby, show game
+      // Hide lobby UI
       if (window.multiplayerUI) {
         window.multiplayerUI.hideLobby();
+      }
+      
+      // Show game screen
+      document.getElementById('title-screen').classList.add('hidden');
+      document.getElementById('game-screen').classList.remove('hidden');
+      
+      // Set game state to reveal
+      this.gameState = 'REVEAL';
+      this.revealTimer = 3500;
+      
+      // Initialize map
+      this.map = new GameMap(false); // isWaitingRoom = false
+      
+      // Clear existing entities and create local player from game state
+      this.entities = [];
+      this.deadBodies = [];
+      this.remotePlayers.clear();
+      
+      // Find local player data from server
+      const localPlayerData = data.gameState.players.find(p => p.id === this.localPlayerId);
+      if (localPlayerData) {
+        const localPlayer = new Player(
+          this.localPlayerId,
+          localPlayerData.x,
+          localPlayerData.y,
+          localPlayerData.color,
+          localPlayerData.nickname,
+          CONTROLS.P1,
+          localPlayerData.isImpostor
+        );
+        localPlayer.equippedHat = localPlayerData.equippedHat;
+        localPlayer.speed = this.playerSpeedSetting;
+        localPlayer.tasks = data.tasks || [];
+        this.entities.push(localPlayer);
+        
+        // Update HUD
+        updateTasksHUD(localPlayer.tasks || [], 'tasks-hud-p1');
+        document.getElementById('p1-hud').classList.remove('hidden');
       }
       
       // Initialize remote players
@@ -149,11 +190,19 @@ export function initMultiplayer(gameEngine) {
           remotePlayer.x = playerData.x;
           remotePlayer.y = playerData.y;
           remotePlayer.equippedHat = playerData.equippedHat;
+          remotePlayer.isImpostor = playerData.isImpostor;
           this.remotePlayers.set(playerData.id, remotePlayer);
         }
       }
       
-      // TODO: Set local player role and position
+      // Play role reveal sound
+      playRoleReveal(data.role === 'impostor');
+      
+      // Start game loop if not already running
+      if (!this.lastTime) {
+        this.lastTime = Date.now();
+        this.gameLoop();
+      }
     });
     
     // State synchronization
