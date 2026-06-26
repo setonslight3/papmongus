@@ -941,6 +941,9 @@ class GameEngine {
               completedTask.completed = true;
               this.gameState = 'PLAYING';
               this.addTP(10); // Award 10 TP on task completion
+              if (this.isMultiplayer) {
+                this.sendActionEvent('task', { taskId: completedTask.id });
+              }
               this.checkVictoryConditions();
             });
           }
@@ -1210,6 +1213,12 @@ class GameEngine {
   }
 
   showLobby() {
+    if (this.isMultiplayer) {
+      this.leaveRoom();
+      document.getElementById('gameover-overlay').classList.add('hidden');
+      document.getElementById('game-screen').classList.add('hidden');
+      return;
+    }
     this.gameState = 'LOBBY';
     document.getElementById('gameover-overlay').classList.add('hidden');
     document.getElementById('game-screen').classList.add('hidden');
@@ -1333,7 +1342,7 @@ class GameEngine {
       }
 
       // 7. Update Tasks progress fill
-      const progress = this.getTaskProgress();
+      const progress = this.isMultiplayer ? (this.multiplayerTaskProgress || 0) * 100 : this.getTaskProgress();
       document.getElementById('tasks-progress-fill').style.width = `${progress}%`;
     }
 
@@ -1480,7 +1489,12 @@ class GameEngine {
   attemptKill(impostor) {
     if (impostor.killCooldown > 0) return;
 
-    const targets = this.entities.filter(e => !e.isImpostor && !e.isDead);
+    let targets;
+    if (this.isMultiplayer) {
+      targets = Array.from(this.remotePlayers.values()).filter(p => !p.isDead);
+    } else {
+      targets = this.entities.filter(e => !e.isImpostor && !e.isDead);
+    }
     let closestTarget = null;
     let minDist = KILL_RANGE;
 
@@ -1493,9 +1507,14 @@ class GameEngine {
     });
 
     if (closestTarget) {
-      this.killPlayer(closestTarget, impostor);
-      impostor.killCooldown = this.killCooldownSetting * 1000; // Reset cooldown from setting
-      this.checkVictoryConditions();
+      if (this.isMultiplayer) {
+        this.sendActionEvent('kill', { victimId: closestTarget.id });
+        impostor.killCooldown = this.killCooldownSetting * 1000;
+      } else {
+        this.killPlayer(closestTarget, impostor);
+        impostor.killCooldown = this.killCooldownSetting * 1000; // Reset cooldown from setting
+        this.checkVictoryConditions();
+      }
     }
   }
 
@@ -1785,6 +1804,12 @@ class GameEngine {
   }
 
   triggerMeeting(reporter, isBodyFound, reportedBody = null) {
+    if (this.isMultiplayer) {
+      const bodyId = isBodyFound && reportedBody ? reportedBody.victimId : null;
+      this.sendActionEvent('report', { bodyId });
+      return;
+    }
+
     closeMinigame(false); // Close any active minigames
 
     // Play report sound siren
@@ -1872,6 +1897,12 @@ class GameEngine {
   }
 
   checkVictoryConditions() {
+    if (this.isMultiplayer) {
+      const p1 = this.entities.find(e => e.id === 'P1');
+      if (p1) updateTasksHUD(p1.tasks || [], 'tasks-hud-p1');
+      return;
+    }
+
     const aliveEntities = this.entities.filter(e => !e.isDead);
     const impostors = aliveEntities.filter(e => e.isImpostor);
     const crewmates = aliveEntities.filter(e => !e.isImpostor);

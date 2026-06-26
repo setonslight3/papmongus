@@ -2,9 +2,10 @@
 import { NetworkManager } from './network.js';
 import { RemotePlayer, Player } from './entity.js';
 import { GameMap } from './map.js';
-import { CONTROLS, TILE_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT } from './config.js';
+import { CONTROLS, TILE_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT, TASKS_LIST } from './config.js';
 import { updateTasksHUD } from './tasks.js';
-import { playRoleReveal } from './audio.js';
+import { playRoleReveal, playReport } from './audio.js';
+import { closeMinigame } from './minigames.js';
 
 export function initMultiplayer(gameEngine) {
   // Server URL - use environment variable or default
@@ -57,7 +58,7 @@ export function initMultiplayer(gameEngine) {
     
     nm.on('disconnected', () => {
       console.log('Disconnected from server');
-      if (this.isMultiplayer) {
+      if (this.isMultiplayer && this.gameState !== 'GAMEOVER') {
         alert('Disconnected from game');
         this.leaveRoom();
       }
@@ -177,7 +178,28 @@ export function initMultiplayer(gameEngine) {
         );
         localPlayer.equippedHat = localPlayerData.equippedHat;
         localPlayer.speed = this.playerSpeedSetting;
-        localPlayer.tasks = data.tasks || [];
+        const mappedTasks = [];
+        if (data.tasks) {
+          data.tasks.forEach(taskId => {
+            const mapTask = this.map.tasks.find(t => t.id === taskId);
+            if (mapTask) {
+              mappedTasks.push({ ...mapTask, completed: false });
+            } else {
+              const taskDef = TASKS_LIST.find(t => t.id === taskId);
+              if (taskDef) {
+                mappedTasks.push({
+                  ...taskDef,
+                  x: 0,
+                  y: 0,
+                  col: 0,
+                  row: 0,
+                  completed: false
+                });
+              }
+            }
+          });
+        }
+        localPlayer.tasks = mappedTasks;
         this.entities.push(localPlayer);
         
         // Update HUD
@@ -213,6 +235,7 @@ export function initMultiplayer(gameEngine) {
     
     // State synchronization
     nm.on('STATE_SYNC', (data) => {
+      this.multiplayerTaskProgress = data.taskProgress;
       // 1. Sync local player alive state
       const localPlayerData = data.players.find(p => p.id === this.localPlayerId);
       if (localPlayerData) {
@@ -266,7 +289,8 @@ export function initMultiplayer(gameEngine) {
       this.deadBodies.push({
         x: data.bodyX,
         y: data.bodyY,
-        color: victimColor
+        color: victimColor,
+        victimId: data.victimId
       });
       
       // Mark player as dead
@@ -287,28 +311,56 @@ export function initMultiplayer(gameEngine) {
     nm.on('TASK_PROGRESS', (data) => {
       console.log('Task progress:', data.progress);
       // Update task bar
+      this.multiplayerTaskProgress = data.progress;
     });
     
     nm.on('MEETING_TRIGGERED', (data) => {
       console.log('Meeting triggered by', data.reporterId);
-      this.gameState = 'MEETING';
       
-      // Get all players
-      const allPlayers = [...this.entities, ...this.remotePlayers.values()];
-      
-      // Find reporter player
-      const reporter = allPlayers.find(p => p.id === data.reporterId || (p.id === 'P1' && data.reporterId === this.localPlayerId));
-      
-      // Find victim player
-      let victim = null;
-      if (data.bodyId) {
-        victim = allPlayers.find(p => p.id === data.bodyId || (p.id === 'P1' && data.bodyId === this.localPlayerId));
+      closeMinigame(false);
+      playReport();
+      this.deadBodies = [];
+
+      // Pause local player
+      const p1 = this.entities.find(e => e.id === 'P1');
+      if (p1) p1.isMoving = false;
+
+      // Show megaphone flash overlay
+      const reportOverlay = document.getElementById('report-overlay');
+      if (reportOverlay) {
+        const headline = reportOverlay.querySelector('.report-headline');
+        if (headline) {
+          headline.innerText = data.bodyId ? 'BODY REPORTED!' : 'EMERGENCY MEETING!';
+        }
+        reportOverlay.classList.remove('hidden');
       }
-      
-      // Open the meeting UI
-      if (window.startMeeting) {
-        window.startMeeting(allPlayers, reporter, !!data.bodyId, () => {}, victim);
-      }
+
+      // Wait 2.2 seconds before transitioning to meeting screen
+      setTimeout(() => {
+        const reportOverlay = document.getElementById('report-overlay');
+        if (reportOverlay) {
+          reportOverlay.classList.add('hidden');
+        }
+        
+        this.gameState = 'MEETING';
+        
+        // Get all players
+        const allPlayers = [...this.entities, ...this.remotePlayers.values()];
+        
+        // Find reporter player
+        const reporter = allPlayers.find(p => p.id === data.reporterId || (p.id === 'P1' && data.reporterId === this.localPlayerId));
+        
+        // Find victim player
+        let victim = null;
+        if (data.bodyId) {
+          victim = allPlayers.find(p => p.id === data.bodyId || (p.id === 'P1' && data.bodyId === this.localPlayerId));
+        }
+        
+        // Open the meeting UI
+        if (window.startMeeting) {
+          window.startMeeting(allPlayers, reporter, !!data.bodyId, () => {}, victim);
+        }
+      }, 2200);
     });
     
     nm.on('VOTING_RESULTS', (data) => {
@@ -431,12 +483,11 @@ export function initMultiplayer(gameEngine) {
   
   // Leave room
   gameEngine.leaveRoom = function() {
+    this.isMultiplayer = false;
     if (this.networkManager) {
       this.networkManager.send('LEAVE_ROOM', {});
       this.networkManager.disconnect();
     }
-    
-    this.isMultiplayer = false;
     this.networkManager = null;
     this.roomCode = null;
     this.isHost = false;

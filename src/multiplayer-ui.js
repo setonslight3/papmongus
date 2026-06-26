@@ -69,6 +69,31 @@ class MultiplayerUI {
       document.getElementById('lobby-start-btn').addEventListener('click', () => {
         this.gameEngine.networkManager.send('START_GAME', {});
       });
+
+      const roomCodeEl = document.getElementById('lobby-room-code');
+      if (roomCodeEl) {
+        roomCodeEl.style.cursor = 'pointer';
+        roomCodeEl.title = 'Click to copy';
+        roomCodeEl.addEventListener('click', () => {
+          const code = roomCodeEl.textContent;
+          if (code && code !== '------') {
+            navigator.clipboard.writeText(code).then(() => {
+              const subtitle = roomCodeEl.nextElementSibling;
+              if (subtitle) {
+                const originalText = subtitle.textContent;
+                subtitle.textContent = 'Copied to clipboard!';
+                subtitle.style.color = 'var(--neon-green)';
+                setTimeout(() => {
+                  subtitle.textContent = originalText;
+                  subtitle.style.color = '';
+                }, 2000);
+              }
+            }).catch(err => {
+              console.error('Failed to copy text: ', err);
+            });
+          }
+        });
+      }
     }
   }
 
