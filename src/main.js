@@ -777,6 +777,8 @@ class GameEngine {
     const currentCount = activeBots.length;
     const targetCount = this.botCountSetting;
 
+    if (currentCount === targetCount) return;
+
     if (currentCount < targetCount) {
       const hatsList = ['tophat', 'crown', 'chef', 'slug', null];
       const botColors = ['green', 'yellow', 'purple', 'orange', 'cyan', 'pink', 'white', 'black', 'red', 'blue'];

@@ -137,6 +137,10 @@ export function initMultiplayer(gameEngine) {
         window.multiplayerUI.hideLobby();
       }
 
+      if (this.isHost) {
+        this.syncLobbyBots();
+      }
+
       // Start loop if not already running
       if (!this.lastTime) {
         this.lastTime = Date.now();
@@ -243,6 +247,7 @@ export function initMultiplayer(gameEngine) {
       if (data.newHostId === this.localPlayerId) {
         this.isHost = true;
         console.log('You are now the host of this room');
+        this.syncLobbyBots();
       }
     });
     
@@ -254,6 +259,7 @@ export function initMultiplayer(gameEngine) {
       if (data.newHostId === this.localPlayerId) {
         this.isHost = true;
         console.log('You are now the host of this room');
+        this.syncLobbyBots();
       }
     });
     
@@ -359,18 +365,19 @@ export function initMultiplayer(gameEngine) {
       
       // Initialize remote players
       for (const playerData of data.gameState.players) {
-        if (playerData.id !== this.localPlayerId) {
-          const remotePlayer = new RemotePlayer(
-            playerData.id,
-            playerData.nickname,
-            playerData.color,
-            playerData.x,
-            playerData.y
-          );
-          remotePlayer.equippedHat = playerData.equippedHat;
-          remotePlayer.isImpostor = playerData.isImpostor;
-          this.remotePlayers.set(playerData.id, remotePlayer);
-        }
+        if (playerData.id === this.localPlayerId) continue;
+        if (this.isHost && playerData.id.startsWith('bot-')) continue;
+        
+        const remotePlayer = new RemotePlayer(
+          playerData.id,
+          playerData.nickname,
+          playerData.color,
+          playerData.x,
+          playerData.y
+        );
+        remotePlayer.equippedHat = playerData.equippedHat;
+        remotePlayer.isImpostor = playerData.isImpostor;
+        this.remotePlayers.set(playerData.id, remotePlayer);
       }
       
       // Play role reveal sound
