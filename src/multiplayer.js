@@ -72,6 +72,16 @@ export function initMultiplayer(gameEngine) {
       console.error('Network error:', data);
     });
     
+    // Server error messages
+    nm.on('ERROR', (data) => {
+      console.error('Server error:', data.message);
+      if (window.multiplayerUI) {
+        window.multiplayerUI.showError(data.message || 'An error occurred');
+      } else {
+        alert(data.message || 'An error occurred');
+      }
+    });
+    
     // Room management
     nm.on('ROOM_CREATED', (data) => {
       this.roomCode = data.roomCode;
