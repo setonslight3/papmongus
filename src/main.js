@@ -1334,6 +1334,7 @@ class GameEngine {
       // 2. Multiplayer: Send position updates (throttled to 20Hz)
       if (this.isMultiplayer) {
         this.sendPositionUpdate();
+        this.updateRemotePlayers(dt);
       }
 
       // 3. Update HUD labels & hints
