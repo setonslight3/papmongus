@@ -692,7 +692,7 @@ class GameEngine {
 
     // 3. Tab visibility based on player
     const tabSettingsBtn = document.getElementById('tab-settings-btn');
-    if (playerId === 'P2') {
+    if (playerId === 'P2' || (this.isMultiplayer && !this.isHost)) {
       tabSettingsBtn.classList.add('hidden');
       this.switchConfigTab('appearance');
     } else {
@@ -701,7 +701,7 @@ class GameEngine {
 
     // 4. Start Match button visibility
     const startBtn = document.getElementById('config-start-btn');
-    if (playerId === 'P1') {
+    if (playerId === 'P1' && (!this.isMultiplayer || this.isHost)) {
       startBtn.classList.remove('hidden');
     } else {
       startBtn.classList.add('hidden');

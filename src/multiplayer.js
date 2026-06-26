@@ -230,11 +230,23 @@ export function initMultiplayer(gameEngine) {
       console.log('Player left:', data.playerId);
       // Remove from remote players
       this.remotePlayers.delete(data.playerId);
+      
+      // Update host status if it migrated to local player
+      if (data.newHostId === this.localPlayerId) {
+        this.isHost = true;
+        console.log('You are now the host of this room');
+      }
     });
     
     nm.on('PLAYER_DISCONNECTED', (data) => {
       console.log('Player disconnected:', data.playerId);
       this.remotePlayers.delete(data.playerId);
+      
+      // Update host status if it migrated to local player
+      if (data.newHostId === this.localPlayerId) {
+        this.isHost = true;
+        console.log('You are now the host of this room');
+      }
     });
     
     // Game start
@@ -636,6 +648,18 @@ export function initMultiplayer(gameEngine) {
           });
         }
       });
+    }
+    // Bind leave button click/touchstart listeners
+    const leaveRoomHud = document.getElementById('lobby-leave-btn-hud');
+    if (leaveRoomHud && !leaveRoomHud.hasLeaveListener) {
+      leaveRoomHud.hasLeaveListener = true;
+      const handleLeave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.leaveRoom();
+      };
+      leaveRoomHud.addEventListener('click', handleLeave);
+      leaveRoomHud.addEventListener('touchstart', handleLeave);
     }
   };
   

@@ -510,6 +510,9 @@ function handleDisconnect(clientId) {
   // Leave room if in one
   const room = roomManager.getRoomByClient(clientId);
   if (room) {
+    if (room.gameState) {
+      room.gameState.removePlayer(clientId);
+    }
     const result = roomManager.leaveRoom(clientId);
     
     if (!result.roomDeleted && result.room) {
