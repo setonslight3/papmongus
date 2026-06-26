@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>papmongus - Among Us from Scratch</title>
+  <script type="module" crossorigin src="/assets/index-CHzL9nUQ.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DEdK6fLT.css">
+</head>
+<body>
+
+  <!-- ================= Dashboard Landing Screen ================= -->
+  <div id="title-screen" class="screen">
+    <!-- Top Header Bar -->
+    <div class="dashboard-header">
+      <div class="header-left">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <input type="text" id="player-name-input" value="Player 1" max="12" class="nickname-input">
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="tp-display">TP: <span id="tp-amount">0</span></span>
+        <button id="friends-btn" class="header-friends-btn">FRIENDS</button>
+      </div>
+    </div>
+
+    <!-- Main Content Layout -->
+    <div class="dashboard-body">
+      <!-- Left Panel (Menu Options) -->
+      <div class="dashboard-menu">
+        <div class="among-us-logo">PAPMONGUS</div>
+        
+        <div class="main-buttons-box">
+          <button id="menu-play-btn" class="dashboard-btn play-btn">
+            <span class="btn-icon play-icon">🏃‍♂️</span>
+            <span class="btn-text">PLAY</span>
+          </button>
+          
+          <button id="menu-inventory-btn" class="dashboard-btn inventory-btn" onclick="document.getElementById('inventory-modal').classList.remove('hidden')">
+            <span class="btn-icon inventory-icon">📦</span>
+            <span class="btn-text">INVENTORY</span>
+          </button>
+          
+          <button id="menu-shop-btn" class="dashboard-btn shop-btn" onclick="document.getElementById('shop-modal').classList.remove('hidden')">
+            <span class="btn-icon shop-icon">🌟</span>
+            <span class="btn-text">SHOP</span>
+            <span class="notification-badge alert-badge">!</span>
+          </button>
+        </div>
+
+        <div class="sub-buttons-row">
+          <button id="menu-news-btn" class="sub-btn news-btn">
+            <span class="sub-icon">📢</span>
+            <span class="sub-text">NEWS</span>
+            <span class="notification-badge count-badge">9+</span>
+          </button>
+          
+          <button id="menu-account-btn" class="sub-btn account-btn">
+            <span class="sub-icon">💳</span>
+            <span class="sub-text">MY ACCOUNT</span>
+          </button>
+          
+          <button id="menu-settings-btn" class="sub-btn settings-btn" onclick="document.getElementById('settings-modal').classList.remove('hidden')">
+            <span class="sub-icon">⚙</span>
+            <span class="sub-text">SETTINGS</span>
+          </button>
+        </div>
+
+        <div class="credits-container">
+          <button id="menu-credits-btn" class="credits-btn">CREDITS</button>
+        </div>
+      </div>
+
+      <!-- Right Panel (Space Viewport Box) -->
+      <div class="dashboard-viewport-container">
+        <div class="dashboard-viewport">
+          <canvas id="menu-canvas" width="460" height="280"></canvas>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Version Text at the bottom -->
+    <div class="build-version">v2024.6.18a (build num: 4320)</div>
+  </div>
+
+  <!-- ================= Active Game Viewport ================= -->
+  <div id="game-screen" class="screen hidden">
+    <!-- Tasks Completion Progress Bar -->
+    <div class="progress-bar-container">
+      <div class="progress-label">CREWMATE TASK COMPLETION</div>
+      <div class="progress-track">
+        <div id="tasks-progress-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- Central Game Viewport -->
+    <canvas id="game-canvas" width="960" height="540" tabindex="1" style="outline: none;"></canvas>
+
+    <!-- HTML / HUD UI Overlays -->
+    <!-- Player 1 HUD (Left side relative/absolute overlay) -->
+    <div id="p1-hud" class="player-hud">
+      <div class="hud-room-display" id="p1-room-text">Room: Cafeteria</div>
+      <div class="task-list-box">
+        <h3>Player 1 Tasks</h3>
+        <div id="tasks-hud-p1">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      <!-- HUD action indicator overlays (shows keyboard hints dynamically) -->
+      <div class="hud-actions-hints">
+        <div id="p1-action-use" class="action-hint hidden">E - USE</div>
+        <div id="p1-action-kill" class="action-hint red-hint hidden">Q - KILL</div>
+        <div id="p1-action-vent" class="action-hint red-hint hidden">F - VENT</div>
+        <div id="p1-action-report" class="action-hint yellow-hint hidden">R - REPORT</div>
+      </div>
+    </div>
+
+    <!-- Player 2 HUD (Right side relative/absolute overlay, shown in co-op) -->
+    <div id="p2-hud" class="player-hud hidden">
+      <div class="hud-room-display" id="p2-room-text">Room: Cafeteria</div>
+      <div class="task-list-box">
+        <h3>Player 2 Tasks</h3>
+        <div id="tasks-hud-p2">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      <div class="hud-actions-hints">
+        <div id="p2-action-use" class="action-hint hidden">Num 1 - USE</div>
+        <div id="p2-action-kill" class="action-hint red-hint hidden">Num 3 - KILL</div>
+        <div id="p2-action-vent" class="action-hint red-hint hidden">Num 0 - VENT</div>
+        <div id="p2-action-report" class="action-hint yellow-hint hidden">Num 2 - REPORT</div>
+      </div>
+    </div>
+
+    <!-- Screen overlays for global notifications -->
+    <div id="sabotage-warning" class="sabotage-banner hidden">
+      <div id="sabotage-text">LIGHTS SABOTAGED! REPAIR IN ELECTRICAL</div>
+    </div>
+  </div>
+
+  <!-- ================= Minigame Modal Overlay ================= -->
+  <div id="minigame-overlay" class="modal-overlay hidden">
+    <div class="modal-content">
+      <button id="minigame-close-btn" class="close-btn">&times;</button>
+      
+      <!-- Task Completed Banner -->
+      <div id="task-completed-banner" class="task-completed-banner hidden">
+        <div class="check-icon">&#10004;</div>
+        <div class="task-completed-text">Task Completed!</div>
+      </div>
+      
+      <!-- 1. Fix Wiring Game -->
+      <div id="wiring-game" class="minigame-container hidden">
+        <h2>Fix Wiring</h2>
+        <canvas id="wiring-canvas" width="450" height="320"></canvas>
+      </div>
+
+      <!-- 2. Swipe Card Game -->
+      <div id="swipe-game" class="minigame-container hidden">
+        <h2>Swipe Keycard</h2>
+        <div id="swipe-track" class="card-swipe-track">
+          <div id="swipe-card" class="swipe-card-asset">CARD</div>
+        </div>
+        <div id="swipe-status" class="swipe-status-text neutral">INSERT CARD</div>
+      </div>
+
+      <!-- 3. Upload Data Game -->
+      <div id="upload-game" class="minigame-container hidden">
+        <h2>Data Transfer</h2>
+        <div class="upload-console">
+          <div class="upload-progress-container">
+            <div id="upload-progress-fill" class="upload-progress-fill"></div>
+          </div>
+          <div id="upload-progress-text" class="upload-percentage">0%</div>
+          <button id="upload-btn" class="btn primary-btn">START TRANSFER</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Emergency Meeting Screen ================= -->
+  <div id="meeting-overlay" class="modal-overlay hidden">
+    <div class="meeting-container">
+      <h2 id="meeting-title-text">EMERGENCY MEETING CALLED</h2>
+      <div id="meeting-timer" class="meeting-timer-text">Voting Ends In: 30s</div>
+
+      <div class="meeting-content-grid">
+        <!-- Voting grid (Alive/dead card selectors) -->
+        <div id="meeting-grid" class="vote-grid">
+          <!-- Populated programmatically -->
+        </div>
+
+        <!-- Chat / Discussion logs -->
+        <div class="meeting-chat-panel">
+          <h3>Discussion Chat</h3>
+          <div id="meeting-chat-box" class="chat-log-box">
+            <!-- Programmatic chat strings from bots -->
+          </div>
+          <div class="chat-input-row">
+            <input type="text" id="chat-input" class="chat-input-field" placeholder="Type a message..." maxlength="80" autocomplete="off">
+            <button id="chat-send-btn" class="btn chat-send-btn">SEND</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="meeting-footer">
+        <button id="skip-vote-btn" class="btn btn-skip">PLAYER 1: SKIP VOTE</button>
+        <button id="skip-vote-btn-p2" class="btn btn-skip hidden">PLAYER 2: SKIP VOTE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Ejection Anim Screen ================= -->
+  <div id="ejection-overlay" class="modal-overlay hidden">
+    <div class="ejection-content">
+      <div class="stars-container"></div>
+      <div id="ejection-text" class="ejection-text-glow">Red was ejected.</div>
+    </div>
+  </div>
+
+  <!-- ================= Killed Overlay Screen ================= -->
+  <div id="killed-overlay" class="modal-overlay hidden">
+    <div class="killed-content">
+      <canvas id="killed-canvas" width="600" height="400"></canvas>
+    </div>
+  </div>
+
+  <!-- ================= Report Overlay Screen ================= -->
+  <div id="report-overlay" class="modal-overlay hidden">
+    <div class="report-content">
+      <div class="report-megaphone">📢</div>
+      <div class="report-headline">BODY REPORTED!</div>
+    </div>
+  </div>
+
+  <!-- ================= Game Over Overlay Screen ================= -->
+  <div id="gameover-overlay" class="modal-overlay hidden">
+    <div class="title-space-bg" id="gameover-space-bg"></div>
+    <div class="gameover-box">
+      <h1 id="gameover-title" class="gameover-headline">VICTORY</h1>
+      <h3 id="gameover-subtitle">The Impostors have been ejected!</h3>
+      
+      <div class="gameover-stats">
+        <p>Total Tasks Completed: <span id="stat-tasks">0</span></p>
+        <p>Alive Players: <span id="stat-alive">0</span></p>
+      </div>
+
+      <button id="restart-btn" class="btn primary-btn">Return to Lobby</button>
+    </div>
+  </div>
+
+  <!-- ================= Lobby Modal Overlay ================= -->
+  <div id="lobby-modal" class="modal-overlay hidden">
+    <div class="modal-content lobby-modal-content">
+      <button id="lobby-close-btn" class="close-btn">&times;</button>
+      <h2>GAME SETUP</h2>
+      
+      <div class="customizer-box">
+        <label>Select Color:</label>
+        <div id="color-picker-grid" class="color-grid">
+          <!-- Populated programmatically -->
+        </div>
+
+        <label for="role-select">Preferred Role:</label>
+        <select id="role-select">
+          <option value="random">Random Selection</option>
+          <option value="crew">Always Crewmate</option>
+          <option value="impostor">Always Impostor</option>
+        </select>
+
+        <label for="difficulty-select" style="margin-top: 15px; display: block;">Bot Difficulty:</label>
+        <select id="difficulty-select">
+          <option value="medium">Medium (Default)</option>
+          <option value="easy">Easy (Slower Bots)</option>
+          <option value="hard">Hard (Savage Bots)</option>
+        </select>
+      </div>
+
+      <div class="menu-actions">
+        <button id="start-single-btn" class="btn primary-btn">Play Singleplayer (with Bots)</button>
+        <button id="start-coop-btn" class="btn secondary-btn">Play Local Co-op (Split Screen)</button>
+      </div>
+      
+      <div class="controls-guide">
+        <h3>Controls Guide</h3>
+        <div class="guide-grid">
+          <div>
+            <strong>Player 1 (Left Screen)</strong><br>
+            Move: <span>W</span> <span>A</span> <span>S</span> <span>D</span><br>
+            Interact / Task: <span>E</span><br>
+            Kill (Impostor): <span>Q</span><br>
+            Use Vent (Impostor): <span>F</span><br>
+            Report Body: <span>R</span>
+          </div>
+          <div>
+            <strong>Player 2 (Right Screen)</strong><br>
+            Move: <span>▲</span> <span>◀</span> <span>▼</span> <span>▶</span><br>
+            Interact / Task: <span>Num 1</span><br>
+            Kill (Impostor): <span>Num 3</span><br>
+            Use Vent (Impostor): <span>Num 0</span><br>
+            Report Body: <span>Num 2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Settings Modal Overlay ================= -->
+  <div id="settings-modal" class="modal-overlay hidden">
+    <div class="modal-content glass-modal-content">
+      <button id="settings-close-btn" class="close-btn">&times;</button>
+      <h2>SETTINGS</h2>
+      
+      <div class="settings-grid">
+        <div class="setting-item">
+          <label for="setting-volume">Sound Volume:</label>
+          <input type="range" id="setting-volume" min="0" max="1" step="0.05" value="0.5">
+          <span id="volume-val">50%</span>
+        </div>
+        
+        <div class="setting-item">
+          <label for="setting-speed">Player Speed:</label>
+          <input type="range" id="setting-speed" min="2" max="6" step="0.5" value="3.5">
+          <span id="speed-val">3.5</span>
+        </div>
+        
+        <div class="setting-item">
+          <label for="setting-cooldown">Kill Cooldown (s):</label>
+          <input type="range" id="setting-cooldown" min="10" max="45" step="5" value="25">
+          <span id="cooldown-val">25s</span>
+        </div>
+        
+        <div class="setting-item">
+          <label for="setting-bots">Bot Count:</label>
+          <input type="range" id="setting-bots" min="2" max="10" step="1" value="6">
+          <span id="bots-val">6</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Shop Modal Overlay ================= -->
+  <div id="shop-modal" class="modal-overlay hidden">
+    <div class="modal-content glass-modal-content">
+      <button id="shop-close-btn" class="close-btn">&times;</button>
+      <h2>COSMETICS SHOP</h2>
+      <div class="shop-header">
+        <span class="tp-display">Your TP: <span id="shop-tp-amount">0</span></span>
+      </div>
+      
+      <div class="shop-items-grid">
+        <div class="shop-item" data-hat="tophat" data-price="100">
+          <div class="hat-preview tophat-preview">🎩</div>
+          <div class="item-name">Top Hat</div>
+          <div class="item-price">100 TP</div>
+          <button class="btn buy-btn" id="buy-tophat">BUY</button>
+        </div>
+        
+        <div class="shop-item" data-hat="crown" data-price="250">
+          <div class="hat-preview crown-preview">👑</div>
+          <div class="item-name">Golden Crown</div>
+          <div class="item-price">250 TP</div>
+          <button class="btn buy-btn" id="buy-crown">BUY</button>
+        </div>
+        
+        <div class="shop-item" data-hat="chef" data-price="150">
+          <div class="hat-preview chef-preview">👨‍🍳</div>
+          <div class="item-name">Chef Hat</div>
+          <div class="item-price">150 TP</div>
+          <button class="btn buy-btn" id="buy-chef">BUY</button>
+        </div>
+        
+        <div class="shop-item" data-hat="slug" data-price="200">
+          <div class="hat-preview slug-preview">🧠</div>
+          <div class="item-name">Brain Slug</div>
+          <div class="item-price">200 TP</div>
+          <button class="btn buy-btn" id="buy-slug">BUY</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Inventory Modal Overlay ================= -->
+  <div id="inventory-modal" class="modal-overlay hidden">
+    <div class="modal-content glass-modal-content">
+      <button id="inventory-close-btn" class="close-btn">&times;</button>
+      <h2>YOUR INVENTORY</h2>
+      <p class="inventory-subtitle">Equip unlocked hats below:</p>
+      
+      <div class="inventory-items-grid">
+        <div class="inventory-item" data-hat="none">
+          <div class="hat-preview">❌</div>
+          <div class="item-name">No Hat</div>
+          <button class="btn equip-btn active" id="equip-none">EQUIP</button>
+        </div>
+        
+        <div class="inventory-item locked" data-hat="tophat" id="inv-tophat">
+          <div class="hat-preview">🎩</div>
+          <div class="item-name">Top Hat</div>
+          <button class="btn equip-btn" id="equip-tophat" disabled>LOCKED</button>
+        </div>
+        
+        <div class="inventory-item locked" data-hat="crown" id="inv-crown">
+          <div class="hat-preview">👑</div>
+          <div class="item-name">Golden Crown</div>
+          <button class="btn equip-btn" id="equip-crown" disabled>LOCKED</button>
+        </div>
+        
+        <div class="inventory-item locked" data-hat="chef" id="inv-chef">
+          <div class="hat-preview">👨‍🍳</div>
+          <div class="item-name">Chef Hat</div>
+          <button class="btn equip-btn" id="equip-chef" disabled>LOCKED</button>
+        </div>
+        
+        <div class="inventory-item locked" data-hat="slug" id="inv-slug">
+          <div class="hat-preview">🧠</div>
+          <div class="item-name">Brain Slug</div>
+          <button class="btn equip-btn" id="equip-slug" disabled>LOCKED</button>
+        </div>
+      </div>
+    </div>
+  </div>  <!-- closes inventory-modal -->
+  <!-- ================= Room Config Modal Overlay ================= -->
+  <div id="room-config-modal" class="modal-overlay hidden">
+    <div class="modal-content glass-modal-content" style="width: 650px; max-width: 95vw;">
+      <button id="room-config-close-btn" class="close-btn">&times;</button>
+      <h2 id="room-config-title">ROOM CONFIGURATION</h2>
+      
+      <!-- Tabs header -->
+      <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid rgba(255, 255, 255, 0.08); padding-bottom: 8px;">
+        <button id="tab-appearance-btn" class="btn btn-skip active" style="padding: 8px 18px; font-size: 0.85rem;">CUSTOMIZE</button>
+        <button id="tab-settings-btn" class="btn btn-skip" style="padding: 8px 18px; font-size: 0.85rem;">GAME SETTINGS</button>
+      </div>
+
+      <!-- Tab Content 1: Appearance -->
+      <div id="tab-appearance" class="tab-pane">
+        <label style="display: block; font-size: 0.85rem; font-weight: bold; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase;">Select Color:</label>
+        <div id="config-color-picker" class="color-grid">
+          <!-- Populated programmatically -->
+        </div>
+
+        <label style="display: block; font-size: 0.85rem; font-weight: bold; color: var(--text-secondary); margin-top: 15px; margin-bottom: 8px; text-transform: uppercase;">Select Hat:</label>
+        <div id="config-hat-picker" class="inventory-items-grid" style="max-height: 250px;">
+          <!-- Populated programmatically based on unlocked hats -->
+        </div>
+      </div>
+
+      <div id="tab-settings" class="tab-pane hidden">
+        <div class="settings-grid" style="max-height: 350px; overflow-y: auto; padding-right: 5px;">
+          <div class="setting-item">
+            <label for="config-game-mode">Game Mode:</label>
+            <select id="config-game-mode" style="background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; padding: 6px 12px; border-radius: 6px; outline: none; font-size: 0.9rem;">
+              <option value="single">Singleplayer (with Bots)</option>
+              <option value="coop">Local Co-op (Split Screen)</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <label for="config-role-pref">Preferred Role:</label>
+            <select id="config-role-pref" style="background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; padding: 6px 12px; border-radius: 6px; outline: none; font-size: 0.9rem;">
+              <option value="random">Random Selection</option>
+              <option value="crew">Always Crewmate</option>
+              <option value="impostor">Always Impostor</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <label for="config-bot-diff">Bot Difficulty:</label>
+            <select id="config-bot-diff" style="background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; padding: 6px 12px; border-radius: 6px; outline: none; font-size: 0.9rem;">
+              <option value="medium">Medium (Default)</option>
+              <option value="easy">Easy (Slower Bots)</option>
+              <option value="hard">Hard (Savage Bots)</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <label for="config-volume">Sound Volume:</label>
+            <input type="range" id="config-volume" min="0" max="1" step="0.05" value="0.5" style="accent-color: #2ecc71;">
+            <span id="config-volume-val" style="color: #f1c40f; font-weight: bold; width: 50px; text-align: right;">50%</span>
+          </div>
+
+          <div class="setting-item">
+            <label for="config-speed">Player Speed:</label>
+            <input type="range" id="config-speed" min="2" max="6" step="0.5" value="3.5" style="accent-color: #2ecc71;">
+            <span id="config-speed-val" style="color: #f1c40f; font-weight: bold; width: 50px; text-align: right;">3.5</span>
+          </div>
+
+          <div class="setting-item">
+            <label for="config-cooldown">Kill Cooldown (s):</label>
+            <input type="range" id="config-cooldown" min="10" max="45" step="5" value="25" style="accent-color: #2ecc71;">
+            <span id="config-cooldown-val" style="color: #f1c40f; font-weight: bold; width: 50px; text-align: right;">25s</span>
+          </div>
+
+          <div class="setting-item">
+            <label for="config-bots">Bot Count:</label>
+            <input type="range" id="config-bots" min="2" max="10" step="1" value="6" style="accent-color: #2ecc71;">
+            <span id="config-bots-val" style="color: #f1c40f; font-weight: bold; width: 50px; text-align: right;">6</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 25px; display: flex; justify-content: center;">
+        <button id="config-start-btn" class="btn primary-btn hidden" style="width: 100%; font-size: 1.2rem; font-weight: 800; letter-spacing: 2px;">START MATCH</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Entry Script -->
+</body>
+</html>
