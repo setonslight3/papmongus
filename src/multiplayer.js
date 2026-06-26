@@ -4,7 +4,7 @@ import { RemotePlayer, Player, AIBot } from './entity.js';
 import { GameMap } from './map.js';
 import { CONTROLS, TILE_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT, TASKS_LIST, COLORS } from './config.js';
 import { updateTasksHUD } from './tasks.js';
-import { playRoleReveal, playReport } from './audio.js';
+import { playRoleReveal, playReport, playClick } from './audio.js';
 import { closeMinigame } from './minigames.js';
 
 export function initMultiplayer(gameEngine) {
@@ -127,6 +127,10 @@ export function initMultiplayer(gameEngine) {
       if (leaveRoomHud) {
         leaveRoomHud.classList.remove('hidden');
       }
+      const customizeRoomHud = document.getElementById('lobby-customize-btn-hud');
+      if (customizeRoomHud) {
+        customizeRoomHud.classList.remove('hidden');
+      }
 
       // Hide lobby modal if active
       if (window.multiplayerUI) {
@@ -196,6 +200,10 @@ export function initMultiplayer(gameEngine) {
       if (leaveRoomHud) {
         leaveRoomHud.classList.remove('hidden');
       }
+      const customizeRoomHud = document.getElementById('lobby-customize-btn-hud');
+      if (customizeRoomHud) {
+        customizeRoomHud.classList.remove('hidden');
+      }
 
       // Hide lobby modal if active
       if (window.multiplayerUI) {
@@ -263,6 +271,8 @@ export function initMultiplayer(gameEngine) {
       if (roomCodeDisplay) roomCodeDisplay.classList.add('hidden');
       const leaveRoomHud = document.getElementById('lobby-leave-btn-hud');
       if (leaveRoomHud) leaveRoomHud.classList.add('hidden');
+      const customizeRoomHud = document.getElementById('lobby-customize-btn-hud');
+      if (customizeRoomHud) customizeRoomHud.classList.add('hidden');
       
       // Show game screen
       document.getElementById('title-screen').classList.add('hidden');
@@ -296,7 +306,7 @@ export function initMultiplayer(gameEngine) {
           localPlayerData.color,
           localPlayerData.nickname,
           CONTROLS.P1,
-          localPlayerData.isImpostor
+          data.role === 'impostor'
         );
         localPlayer.equippedHat = localPlayerData.equippedHat;
         localPlayer.speed = this.playerSpeedSetting;
@@ -388,9 +398,25 @@ export function initMultiplayer(gameEngine) {
         }
       }
 
+      // Collect all active player IDs in this sync (excluding local player and host's bots)
+      const activeIds = new Set();
+      for (const playerData of data.players) {
+        if (playerData.id === this.localPlayerId) continue;
+        if (this.isHost && playerData.id.startsWith('bot-')) continue;
+        activeIds.add(playerData.id);
+      }
+
+      // Prune remote players that are no longer in the room (e.g. players left or bots removed)
+      for (const id of this.remotePlayers.keys()) {
+        if (!activeIds.has(id)) {
+          this.remotePlayers.delete(id);
+        }
+      }
+
       // Update remote player positions
       for (const playerData of data.players) {
         if (playerData.id === this.localPlayerId) continue;
+        if (this.isHost && playerData.id.startsWith('bot-')) continue;
         
         let remotePlayer = this.remotePlayers.get(playerData.id);
         if (!remotePlayer) {
@@ -422,9 +448,20 @@ export function initMultiplayer(gameEngine) {
     nm.on('KILL_CONFIRMED', (data) => {
       console.log('Kill confirmed:', data.killerId, 'killed', data.victimId);
       // Add dead body
-      const victimColor = (data.victimId === this.localPlayerId)
-        ? (this.entities.find(e => e.id === 'P1')?.color || '#ffffff')
-        : (this.remotePlayers.get(data.victimId)?.color || '#ffffff');
+      let victimColor = '#ffffff';
+      if (data.victimId === this.localPlayerId) {
+        victimColor = this.entities.find(e => e.id === 'P1')?.color || '#ffffff';
+      } else {
+        const remoteVictim = this.remotePlayers.get(data.victimId);
+        if (remoteVictim) {
+          victimColor = remoteVictim.color;
+        } else {
+          const entityVictim = this.entities.find(e => e.id === data.victimId);
+          if (entityVictim) {
+            victimColor = entityVictim.color;
+          }
+        }
+      }
 
       this.deadBodies.push({
         x: data.bodyX,
@@ -433,7 +470,7 @@ export function initMultiplayer(gameEngine) {
         victimId: data.victimId
       });
       
-      // Mark player as dead
+      // Mark player or bot as dead
       if (data.victimId === this.localPlayerId) {
         const localPlayer = this.entities.find(e => e.id === 'P1');
         if (localPlayer) {
@@ -444,6 +481,11 @@ export function initMultiplayer(gameEngine) {
         const victim = this.remotePlayers.get(data.victimId);
         if (victim) {
           victim.isDead = true;
+        }
+        const botVictim = this.entities.find(e => e.id === data.victimId);
+        if (botVictim) {
+          botVictim.isDead = true;
+          botVictim.isGhost = true;
         }
       }
     });
@@ -661,6 +703,19 @@ export function initMultiplayer(gameEngine) {
       leaveRoomHud.addEventListener('click', handleLeave);
       leaveRoomHud.addEventListener('touchstart', handleLeave);
     }
+    // Bind customize button click/touchstart listeners
+    const customizeRoomHud = document.getElementById('lobby-customize-btn-hud');
+    if (customizeRoomHud && !customizeRoomHud.hasCustomizeListener) {
+      customizeRoomHud.hasCustomizeListener = true;
+      const handleCustomize = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        playClick();
+        this.openRoomConfig('P1');
+      };
+      customizeRoomHud.addEventListener('click', handleCustomize);
+      customizeRoomHud.addEventListener('touchstart', handleCustomize);
+    }
   };
   
   // Create room
@@ -727,6 +782,8 @@ export function initMultiplayer(gameEngine) {
     if (roomCodeDisplay) roomCodeDisplay.classList.add('hidden');
     const leaveRoomHud = document.getElementById('lobby-leave-btn-hud');
     if (leaveRoomHud) leaveRoomHud.classList.add('hidden');
+    const customizeRoomHud = document.getElementById('lobby-customize-btn-hud');
+    if (customizeRoomHud) customizeRoomHud.classList.add('hidden');
 
     document.getElementById('game-screen').classList.add('hidden');
     document.getElementById('title-screen').classList.remove('hidden');

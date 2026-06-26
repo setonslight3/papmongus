@@ -252,9 +252,10 @@ function castVote(voterId, targetId) {
   if (!voter || voter.isDead || meetingState.hasVoted[voterId]) return;
 
   if (window.game && window.game.isMultiplayer) {
-    // In multiplayer, send vote to server
+    // In multiplayer, send vote to server (translate local 'P1' to their actual server client ID)
+    const serverTargetId = (targetId === 'P1') ? window.game.localPlayerId : targetId;
     window.game.networkManager.send('VOTE_CAST', {
-      targetId: targetId,
+      targetId: serverTargetId,
       voterId: voterId.startsWith('bot-') ? voterId : undefined
     });
     meetingState.votes[voterId] = targetId;

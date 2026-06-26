@@ -258,8 +258,18 @@ class RoomManager {
       return { success: false, error: 'Room not found' };
     }
     
-    if (room.players.size + (room.settings.botCount || 0) < 2) {
+    const totalPlayers = room.players.size + (room.settings.botCount || 0);
+    if (totalPlayers < 2) {
       return { success: false, error: 'Need at least 2 players/bots to start' };
+    }
+    
+    const impostorCount = room.settings.impostorCount || 1;
+    const crewmateCount = totalPlayers - impostorCount;
+    if (crewmateCount <= impostorCount) {
+      return { 
+        success: false, 
+        error: `Cannot start: need more crewmates (${crewmateCount}) than impostors (${impostorCount}). Add more players or bots!` 
+      };
     }
     
     room.state = 'PLAYING';

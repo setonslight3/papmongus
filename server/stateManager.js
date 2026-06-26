@@ -273,6 +273,10 @@ class StateManager {
       return { success: false, error: 'Not an impostor' };
     }
 
+    if (victim.isImpostor) {
+      return { success: false, error: 'Cannot kill another impostor' };
+    }
+
     if (!victim.isAlive) {
       return { success: false, error: 'Victim already dead' };
     }

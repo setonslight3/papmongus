@@ -1471,7 +1471,16 @@ class GameEngine {
 
     // Kill hint
     if (player.isImpostor && !player.isVenting) {
-      const targets = this.entities.filter(e => !e.isImpostor && !e.isDead);
+      let targets;
+      if (this.isMultiplayer) {
+        targets = Array.from(this.remotePlayers.values()).filter(p => !p.isDead);
+        if (this.isHost) {
+          const botTargets = this.entities.filter(e => e.id.startsWith('bot-') && !e.isDead && !e.isImpostor);
+          targets = [...targets, ...botTargets];
+        }
+      } else {
+        targets = this.entities.filter(e => !e.isImpostor && !e.isDead);
+      }
       let canKill = false;
       targets.forEach(t => {
         const dist = Math.sqrt((t.x - player.x)**2 + (t.y - player.y)**2);
@@ -1568,6 +1577,10 @@ class GameEngine {
     let targets;
     if (this.isMultiplayer) {
       targets = Array.from(this.remotePlayers.values()).filter(p => !p.isDead);
+      if (this.isHost) {
+        const botTargets = this.entities.filter(e => e.id.startsWith('bot-') && !e.isDead && !e.isImpostor);
+        targets = [...targets, ...botTargets];
+      }
     } else {
       targets = this.entities.filter(e => !e.isImpostor && !e.isDead);
     }
