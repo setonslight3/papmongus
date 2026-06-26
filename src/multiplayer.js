@@ -651,7 +651,7 @@ export function initMultiplayer(gameEngine) {
     this.networkManager.send('CREATE_ROOM', {
       playerInfo: {
         nickname: nickname,
-        color: this.p1Color,
+        color: COLORS[this.p1Color] || this.p1Color,
         equippedHat: this.equippedHat === 'none' ? null : this.equippedHat
       },
       settings: {
@@ -678,7 +678,7 @@ export function initMultiplayer(gameEngine) {
       roomCode: roomCode.toUpperCase(),
       playerInfo: {
         nickname: nickname,
-        color: this.p1Color,
+        color: COLORS[this.p1Color] || this.p1Color,
         equippedHat: this.equippedHat === 'none' ? null : this.equippedHat
       }
     });

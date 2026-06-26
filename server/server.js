@@ -440,6 +440,14 @@ function handleColorChange(clientId, payload) {
   
   player.color = payload.color;
   
+  // Update in GameState if active
+  if (room.gameState) {
+    const pState = room.gameState.getPlayer(clientId);
+    if (pState) {
+      pState.color = payload.color;
+    }
+  }
+  
   broadcastToRoom(room.code, 'COLOR_CHANGED', {
     playerId: clientId,
     color: payload.color
@@ -454,6 +462,14 @@ function handleCosmeticChange(clientId, payload) {
   if (!player) return;
   
   player.equippedHat = payload.equippedHat;
+  
+  // Update in GameState if active
+  if (room.gameState) {
+    const pState = room.gameState.getPlayer(clientId);
+    if (pState) {
+      pState.equippedHat = payload.equippedHat;
+    }
+  }
   
   broadcastToRoom(room.code, 'COSMETIC_CHANGED', {
     playerId: clientId,
