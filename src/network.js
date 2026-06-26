@@ -16,25 +16,58 @@ export class NetworkManager {
   connect() {
     if (this.connectionState === 'connected' || this.connectionState === 'connecting') {
       console.log('Already connected or connecting');
-      return;
+      return Promise.resolve();
     }
 
     this.connectionState = 'connecting';
     this.emit('connecting');
 
-    try {
-      this.ws = new WebSocket(this.serverUrl);
-      
-      this.ws.onopen = () => this.handleOpen();
-      this.ws.onclose = (event) => this.handleClose(event);
-      this.ws.onerror = (error) => this.handleError(error);
-      this.ws.onmessage = (event) => this.handleMessage(event);
-      
-    } catch (error) {
-      console.error('Failed to create WebSocket:', error);
-      this.connectionState = 'disconnected';
-      this.emit('error', error);
-    }
+    return new Promise((resolve, reject) => {
+      try {
+        this.ws = new WebSocket(this.serverUrl);
+        
+        // Timeout after 5 seconds
+        const connectionTimeout = setTimeout(() => {
+          if (this.connectionState === 'connecting') {
+            this.ws.close();
+            this.connectionState = 'disconnected';
+            const error = new Error('Connection timeout');
+            this.emit('error', error);
+            this.emit('connection_failed', error);
+            reject(error);
+          }
+        }, 5000);
+        
+        this.ws.onopen = () => {
+          clearTimeout(connectionTimeout);
+          this.handleOpen();
+          resolve();
+        };
+        
+        this.ws.onclose = (event) => {
+          clearTimeout(connectionTimeout);
+          this.handleClose(event);
+          if (this.connectionState === 'connecting') {
+            reject(new Error('Connection closed before opening'));
+          }
+        };
+        
+        this.ws.onerror = (error) => {
+          clearTimeout(connectionTimeout);
+          this.handleError(error);
+          reject(error);
+        };
+        
+        this.ws.onmessage = (event) => this.handleMessage(event);
+        
+      } catch (error) {
+        console.error('Failed to create WebSocket:', error);
+        this.connectionState = 'disconnected';
+        this.emit('error', error);
+        this.emit('connection_failed', error);
+        reject(error);
+      }
+    });
   }
 
   // Clean disconnect

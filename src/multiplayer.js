@@ -14,14 +14,31 @@ export function initMultiplayer(gameEngine) {
     // Register all message handlers
     this.setupNetworkHandlers();
     
-    // Connect to server
-    this.networkManager.connect();
-    
-    if (mode === 'create') {
-      // Will create room after connection
-    } else if (mode === 'join') {
-      // Will show join dialog
-    }
+    // Connect to server with error handling
+    this.networkManager.connect()
+      .then(() => {
+        console.log('Successfully connected to multiplayer server');
+        if (mode === 'create') {
+          this.createRoom();
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to connect to multiplayer server:', error);
+        this.isMultiplayer = false;
+        this.networkManager = null;
+        
+        if (window.multiplayerUI) {
+          window.multiplayerUI.showError(
+            'Cannot connect to multiplayer server. Make sure the server is running on localhost:3000'
+          );
+        } else {
+          alert('Cannot connect to multiplayer server. The server may be offline.');
+        }
+        
+        // Return to title screen
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) titleScreen.classList.remove('hidden');
+      });
   };
   
   // Setup network message handlers

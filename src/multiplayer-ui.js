@@ -184,15 +184,28 @@ class MultiplayerUI {
   }
 
   showError(message) {
+    // First try to show in the multiplayer modal
     const errorEl = document.getElementById('mp-error-msg');
     if (errorEl) {
       errorEl.textContent = message;
       errorEl.style.display = 'block';
       setTimeout(() => {
         errorEl.style.display = 'none';
-      }, 3000);
-    } else {
-      alert(message);
+      }, 5000);
+    }
+    
+    // Also show the modal if it's hidden
+    const modal = document.getElementById('multiplayer-modal');
+    if (modal && modal.classList.contains('hidden')) {
+      this.showMultiplayerMenu();
+      // Wait a bit then show error
+      setTimeout(() => {
+        const errorEl2 = document.getElementById('mp-error-msg');
+        if (errorEl2) {
+          errorEl2.textContent = message;
+          errorEl2.style.display = 'block';
+        }
+      }, 100);
     }
   }
 
