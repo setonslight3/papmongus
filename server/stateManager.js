@@ -105,7 +105,7 @@ class StateManager {
     this.lastBroadcast = new Map(); // roomCode -> timestamp
   }
 
-  // Initialize game state for a room
+  // Initialize authoritative game state for a room (lobby dropship)
   initializeGameState(room) {
     const gameState = new GameState(room.code);
     
@@ -119,50 +119,102 @@ class StateManager {
       );
     }
 
-    // Assign impostor roles randomly
-    const playerIds = Array.from(gameState.players.keys());
-    const impostorCount = room.settings.impostorCount || 1;
-    
-    for (let i = 0; i < impostorCount && i < playerIds.length; i++) {
-      const randomIndex = Math.floor(Math.random() * playerIds.length);
-      const impostorId = playerIds.splice(randomIndex, 1)[0];
-      const player = gameState.getPlayer(impostorId);
-      player.isImpostor = true;
-      console.log(`Assigned impostor role to ${player.nickname}`);
-    }
-
-    // Assign tasks to crewmates
-    const availableTasks = this.generateTaskList();
-    let totalTasks = 0;
-    
-    for (const player of gameState.players.values()) {
-      if (!player.isImpostor) {
-        // Assign 3-5 random tasks per crewmate
-        const taskCount = 3 + Math.floor(Math.random() * 3);
-        player.tasks = this.assignRandomTasks(availableTasks, taskCount);
-        totalTasks += player.tasks.length;
-      }
-    }
-    
-    gameState.totalTasks = totalTasks;
-
-    // Set initial spawn positions (center of map - Cafeteria)
+    // Set initial spawn positions inside dropship waiting room cabin
     const spawnX = 25 * 32 + 16; // TILE_SIZE = 32
-    const spawnY = 6 * 32 + 16;
+    const spawnY = 20 * 32 + 16;
     let angle = 0;
-    const angleStep = (2 * Math.PI) / gameState.players.size;
+    const angleStep = (2 * Math.PI) / Math.max(1, gameState.players.size);
     
     for (const player of gameState.players.values()) {
-      player.x = spawnX + Math.cos(angle) * 50;
-      player.y = spawnY + Math.sin(angle) * 50;
+      player.x = spawnX + Math.cos(angle) * 30;
+      player.y = spawnY + Math.sin(angle) * 30;
       angle += angleStep;
     }
 
     this.gameStates.set(room.code, gameState);
     room.gameState = gameState;
     
-    console.log(`Game state initialized for room ${room.code}: ${gameState.players.size} players, ${impostorCount} impostors, ${totalTasks} tasks`);
+    console.log(`Game lobby state initialized for room ${room.code}: ${gameState.players.size} players`);
     return gameState;
+  }
+
+  // Setup match roles, tasks, and teleport players to Cafeteria
+  startMatchState(room) {
+    const gameState = this.gameStates.get(room.code);
+    if (!gameState) {
+      throw new Error(`Game state not found for room ${room.code}`);
+    }
+
+    // Reset tasks/roles for all players in GameState
+    for (const playerState of gameState.players.values()) {
+      playerState.isAlive = true;
+      playerState.isImpostor = false;
+      playerState.tasks = [];
+      playerState.completedTasks = 0;
+    }
+
+    gameState.deadBodies = [];
+    gameState.completedTasks = 0;
+
+    // Assign Impostor Roles among all players (humans + bots)
+    const candidates = Array.from(gameState.players.values());
+    const impostorCount = room.settings.impostorCount || 1;
+    
+    // Choose impostors randomly
+    const assignedImpostors = [];
+    for (let i = 0; i < impostorCount && candidates.length > 0; i++) {
+      const idx = Math.floor(Math.random() * candidates.length);
+      const chosen = candidates.splice(idx, 1)[0];
+      chosen.isImpostor = true;
+      assignedImpostors.push(chosen);
+      console.log(`Assigned impostor role to: ${chosen.nickname} (${chosen.id})`);
+    }
+
+    // Assign Tasks to crewmates
+    const availableTasks = this.generateTaskList();
+    let totalTasks = 0;
+
+    for (const playerState of gameState.players.values()) {
+      if (!playerState.isImpostor) {
+        // Assign 3-5 random tasks
+        const taskCount = 3 + Math.floor(Math.random() * 3);
+        playerState.tasks = this.assignRandomTasks(availableTasks, taskCount);
+        totalTasks += playerState.tasks.length;
+      }
+    }
+
+    gameState.totalTasks = totalTasks;
+
+    // Teleport everyone to Cafeteria spawn circle
+    const spawnX = 25 * 32 + 16;
+    const spawnY = 6 * 32 + 16;
+    let angle = 0;
+    const angleStep = (2 * Math.PI) / Math.max(1, gameState.players.size);
+
+    for (const playerState of gameState.players.values()) {
+      playerState.x = spawnX + Math.cos(angle) * 60;
+      playerState.y = spawnY + Math.sin(angle) * 60;
+      angle += angleStep;
+    }
+
+    // Roster of bot roles to securely send only to host client
+    const botRoles = {};
+    for (const [id, playerState] of gameState.players.entries()) {
+      if (id.startsWith('bot-')) {
+        botRoles[id] = {
+          id: id,
+          nickname: playerState.nickname,
+          color: playerState.color,
+          equippedHat: playerState.equippedHat,
+          isImpostor: playerState.isImpostor,
+          x: playerState.x,
+          y: playerState.y
+        };
+      }
+    }
+
+    console.log(`Match started: total tasks = ${totalTasks}`);
+    return { botRoles };
   }
 
   // Generate available task list

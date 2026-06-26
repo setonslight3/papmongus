@@ -79,6 +79,10 @@ class GameEngine {
     this.botCountSetting = botsVal !== null ? parseInt(botsVal) : 6;
     if (isNaN(this.botCountSetting)) this.botCountSetting = 6;
 
+    const impVal = localStorage.getItem('papmongus_impostors');
+    this.impostorCountSetting = impVal !== null ? parseInt(impVal) : 1;
+    if (isNaN(this.impostorCountSetting)) this.impostorCountSetting = 1;
+
     // Multiplayer properties
     this.isMultiplayer = false;
     this.networkManager = null;
@@ -449,6 +453,10 @@ class GameEngine {
         if (mainSpeed) mainSpeed.value = this.playerSpeedSetting;
         const mainSpeedLabel = document.getElementById('speed-val');
         if (mainSpeedLabel) mainSpeedLabel.innerText = this.playerSpeedSetting;
+
+        if (this.isMultiplayer && this.isHost) {
+          this.syncSettingsToServer();
+        }
       });
     }
 
@@ -464,6 +472,10 @@ class GameEngine {
         if (mainCooldown) mainCooldown.value = this.killCooldownSetting;
         const mainCooldownLabel = document.getElementById('cooldown-val');
         if (mainCooldownLabel) mainCooldownLabel.innerText = `${this.killCooldownSetting}s`;
+
+        if (this.isMultiplayer && this.isHost) {
+          this.syncSettingsToServer();
+        }
       });
     }
 
@@ -484,6 +496,20 @@ class GameEngine {
         // Dynamically update bots in the dropship waiting room!
         if (this.gameState === 'WAITING_ROOM') {
           this.syncLobbyBots();
+        }
+      });
+    }
+
+    const configImpostors = document.getElementById('config-impostors');
+    if (configImpostors) {
+      configImpostors.addEventListener('input', (e) => {
+        this.impostorCountSetting = parseInt(e.target.value);
+        localStorage.setItem('papmongus_impostors', this.impostorCountSetting);
+        const valLabel = document.getElementById('config-impostors-val');
+        if (valLabel) valLabel.innerText = this.impostorCountSetting;
+
+        if (this.isMultiplayer && this.isHost) {
+          this.syncSettingsToServer();
         }
       });
     }
@@ -526,6 +552,10 @@ class GameEngine {
             }
           }
         });
+
+        if (this.isMultiplayer && this.isHost) {
+          this.syncSettingsToServer();
+        }
       });
     }
 
@@ -546,7 +576,11 @@ class GameEngine {
       startBtn.addEventListener('click', () => {
         playClick();
         document.getElementById('room-config-modal').classList.add('hidden');
-        this.startActualGame();
+        if (this.isMultiplayer) {
+          this.networkManager.send('START_GAME', {});
+        } else {
+          this.startActualGame();
+        }
       });
     }
   }
@@ -582,6 +616,9 @@ class GameEngine {
         player.color = COLORS[col];
         if (playerId === 'P1') {
           this.p1Color = col;
+          if (this.isMultiplayer) {
+            this.networkManager.send('COLOR_CHANGE', { color: COLORS[col] });
+          }
         }
         // Refresh active classes in grid
         colorGrid.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
@@ -640,6 +677,9 @@ class GameEngine {
         if (playerId === 'P1') {
           this.equippedHat = hat.id;
           localStorage.setItem('papmongus_equipped_hat', hat.id);
+          if (this.isMultiplayer) {
+            this.networkManager.send('COSMETIC_CHANGE', { equippedHat: hat.id === 'none' ? null : hat.id });
+          }
         }
         
         // Refresh hat picker grid
@@ -688,6 +728,11 @@ class GameEngine {
     const botsLabel = document.getElementById('config-bots-val');
     if (botsLabel) botsLabel.innerText = this.botCountSetting;
 
+    const configImpostors = document.getElementById('config-impostors');
+    if (configImpostors) configImpostors.value = this.impostorCountSetting || 1;
+    const impostorsLabel = document.getElementById('config-impostors-val');
+    if (impostorsLabel) impostorsLabel.innerText = this.impostorCountSetting || 1;
+
     const configGameMode = document.getElementById('config-game-mode');
     if (configGameMode) {
       configGameMode.value = this.gameMode === 'COOP' ? 'coop' : 'single';
@@ -726,6 +771,8 @@ class GameEngine {
   }
 
   syncLobbyBots() {
+    if (this.isMultiplayer && !this.isHost) return;
+
     const activeBots = this.entities.filter(e => e.id.startsWith('bot-'));
     const currentCount = activeBots.length;
     const targetCount = this.botCountSetting;
@@ -767,6 +814,34 @@ class GameEngine {
         }
       }
     }
+
+    if (this.isMultiplayer && this.isHost) {
+      this.syncBotsToServer();
+    }
+  }
+
+  syncSettingsToServer() {
+    if (!this.isMultiplayer || !this.isHost || !this.networkManager) return;
+    this.networkManager.send('UPDATE_SETTINGS', {
+      settings: {
+        impostorCount: this.impostorCountSetting || 1,
+        killCooldown: this.killCooldownSetting,
+        playerSpeed: this.playerSpeedSetting,
+        botCount: this.botCountSetting,
+        botDifficulty: this.botDifficulty || 'medium'
+      }
+    });
+  }
+
+  syncBotsToServer() {
+    if (!this.isMultiplayer || !this.isHost || !this.networkManager) return;
+    const bots = this.entities.filter(e => e.id.startsWith('bot-')).map(bot => ({
+      id: bot.id,
+      nickname: bot.nickname,
+      color: bot.color,
+      equippedHat: bot.equippedHat
+    }));
+    this.networkManager.send('SYNC_BOTS', { bots });
   }
 
   syncLobbyGameMode() {

@@ -1,6 +1,6 @@
 // Multiplayer extension for GameEngine
 import { NetworkManager } from './network.js';
-import { RemotePlayer, Player } from './entity.js';
+import { RemotePlayer, Player, AIBot } from './entity.js';
 import { GameMap } from './map.js';
 import { CONTROLS, TILE_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT, TASKS_LIST } from './config.js';
 import { updateTasksHUD } from './tasks.js';
@@ -93,9 +93,50 @@ export function initMultiplayer(gameEngine) {
       this.isHost = data.isHost;
       this.localPlayerId = data.playerId;
       console.log(`Room created: ${data.roomCode}`);
-      // Show lobby UI with room code
+      
+      this.gameState = 'WAITING_ROOM';
+      this.deadBodies = [];
+      this.sabotageActive = false;
+      this.sabotageType = null;
+
+      document.getElementById('title-screen').classList.add('hidden');
+      document.getElementById('game-screen').classList.remove('hidden');
+      
+      const canvas = document.getElementById('game-canvas');
+      if (canvas) canvas.focus();
+
+      // Spawn local player
+      const nickname = localStorage.getItem('papmongus_name') || 'Host';
+      const spawnCenter = { x: 25 * TILE_SIZE + TILE_SIZE / 2, y: 20 * TILE_SIZE + TILE_SIZE / 2 };
+      
+      const p1 = new Player('P1', spawnCenter.x, spawnCenter.y - 30, COLORS[this.p1Color], nickname, CONTROLS.P1, false);
+      p1.equippedHat = this.equippedHat === 'none' ? null : this.equippedHat;
+      p1.speed = this.playerSpeedSetting;
+      
+      this.entities = [p1];
+      this.remotePlayers.clear();
+      this.map = new GameMap(true);
+
+      // Show HUD items
+      const roomCodeDisplay = document.getElementById('game-room-code-display');
+      if (roomCodeDisplay) {
+        roomCodeDisplay.textContent = `Room Code: ${data.roomCode}`;
+        roomCodeDisplay.classList.remove('hidden');
+      }
+      const leaveRoomHud = document.getElementById('lobby-leave-btn-hud');
+      if (leaveRoomHud) {
+        leaveRoomHud.classList.remove('hidden');
+      }
+
+      // Hide lobby modal if active
       if (window.multiplayerUI) {
-        window.multiplayerUI.showLobby(data.room, true);
+        window.multiplayerUI.hideLobby();
+      }
+
+      // Start loop if not already running
+      if (!this.lastTime) {
+        this.lastTime = Date.now();
+        this.gameLoop();
       }
     });
     
@@ -104,17 +145,84 @@ export function initMultiplayer(gameEngine) {
       this.isHost = false;
       this.localPlayerId = data.playerId;
       console.log(`Joined room: ${data.roomCode}`);
-      // Show lobby UI
+      
+      this.gameState = 'WAITING_ROOM';
+      this.deadBodies = [];
+      this.sabotageActive = false;
+      this.sabotageType = null;
+
+      document.getElementById('title-screen').classList.add('hidden');
+      document.getElementById('game-screen').classList.remove('hidden');
+      
+      const canvas = document.getElementById('game-canvas');
+      if (canvas) canvas.focus();
+
+      // Spawn local player
+      const nickname = localStorage.getItem('papmongus_name') || 'Guest';
+      const spawnCenter = { x: 25 * TILE_SIZE + TILE_SIZE / 2, y: 20 * TILE_SIZE + TILE_SIZE / 2 };
+      
+      const p1 = new Player('P1', spawnCenter.x, spawnCenter.y - 30, COLORS[this.p1Color], nickname, CONTROLS.P1, false);
+      p1.equippedHat = this.equippedHat === 'none' ? null : this.equippedHat;
+      p1.speed = this.playerSpeedSetting;
+      
+      this.entities = [p1];
+      this.remotePlayers.clear();
+      this.map = new GameMap(true);
+
+      // Populate remote players with already joined ones
+      if (data.room && data.room.players) {
+        data.room.players.forEach(p => {
+          if (p.id !== this.localPlayerId) {
+            const remotePlayer = new RemotePlayer(
+              p.id,
+              p.nickname,
+              p.color,
+              p.x || spawnCenter.x,
+              p.y || (spawnCenter.y - 30)
+            );
+            remotePlayer.equippedHat = p.equippedHat;
+            this.remotePlayers.set(p.id, remotePlayer);
+          }
+        });
+      }
+
+      // Show HUD items
+      const roomCodeDisplay = document.getElementById('game-room-code-display');
+      if (roomCodeDisplay) {
+        roomCodeDisplay.textContent = `Room Code: ${data.roomCode}`;
+        roomCodeDisplay.classList.remove('hidden');
+      }
+      const leaveRoomHud = document.getElementById('lobby-leave-btn-hud');
+      if (leaveRoomHud) {
+        leaveRoomHud.classList.remove('hidden');
+      }
+
+      // Hide lobby modal if active
       if (window.multiplayerUI) {
-        window.multiplayerUI.showLobby(data.room, false);
+        window.multiplayerUI.hideLobby();
+      }
+
+      // Start loop if not already running
+      if (!this.lastTime) {
+        this.lastTime = Date.now();
+        this.gameLoop();
       }
     });
     
     nm.on('PLAYER_JOINED', (data) => {
       console.log('Player joined:', data.playerId);
-      // Update lobby UI
-      if (window.multiplayerUI) {
-        window.multiplayerUI.updatePlayerList(data.room.players);
+      const spawnCenter = { x: 25 * TILE_SIZE + TILE_SIZE / 2, y: 20 * TILE_SIZE + TILE_SIZE / 2 };
+      // Spawn them as a remote player if they aren't already there
+      if (!this.remotePlayers.has(data.playerId)) {
+        const remotePlayer = new RemotePlayer(
+          data.playerId,
+          data.player.nickname,
+          data.player.color,
+          data.player.x || spawnCenter.x,
+          data.player.y || (spawnCenter.y - 30)
+        );
+        remotePlayer.equippedHat = data.player.equippedHat;
+        this.remotePlayers.set(data.playerId, remotePlayer);
       }
     });
     
@@ -122,10 +230,6 @@ export function initMultiplayer(gameEngine) {
       console.log('Player left:', data.playerId);
       // Remove from remote players
       this.remotePlayers.delete(data.playerId);
-      // Update lobby UI
-      if (window.multiplayerUI) {
-        window.multiplayerUI.updatePlayerList(data.room.players);
-      }
     });
     
     nm.on('PLAYER_DISCONNECTED', (data) => {
@@ -141,6 +245,12 @@ export function initMultiplayer(gameEngine) {
       if (window.multiplayerUI) {
         window.multiplayerUI.hideLobby();
       }
+
+      // Hide HUD waiting room elements
+      const roomCodeDisplay = document.getElementById('game-room-code-display');
+      if (roomCodeDisplay) roomCodeDisplay.classList.add('hidden');
+      const leaveRoomHud = document.getElementById('lobby-leave-btn-hud');
+      if (leaveRoomHud) leaveRoomHud.classList.add('hidden');
       
       // Show game screen
       document.getElementById('title-screen').classList.add('hidden');
@@ -205,6 +315,24 @@ export function initMultiplayer(gameEngine) {
         // Update HUD
         updateTasksHUD(localPlayer.tasks || [], 'tasks-hud-p1');
         document.getElementById('p1-hud').classList.remove('hidden');
+      }
+
+      // Host spawns bots locally
+      if (this.isHost && data.botRoles) {
+        for (const botId in data.botRoles) {
+          const b = data.botRoles[botId];
+          const bot = new AIBot(
+            botId,
+            b.x,
+            b.y,
+            b.color,
+            b.nickname,
+            b.isImpostor,
+            this.botDifficulty || 'medium'
+          );
+          bot.equippedHat = b.equippedHat;
+          this.entities.push(bot);
+        }
       }
       
       // Initialize remote players
@@ -436,6 +564,79 @@ export function initMultiplayer(gameEngine) {
         player.equippedHat = data.equippedHat;
       }
     });
+
+    nm.on('ROOM_SETTINGS_UPDATED', (data) => {
+      console.log('Room settings updated:', data.settings);
+      
+      this.impostorCountSetting = data.settings.impostorCount;
+      this.killCooldownSetting = data.settings.killCooldown;
+      this.playerSpeedSetting = data.settings.playerSpeed;
+      this.botCountSetting = data.settings.botCount;
+      this.botDifficulty = data.settings.botDifficulty || 'medium';
+
+      // Update local sliders/HUD if config modal is open or settings view is active
+      const configImpostors = document.getElementById('config-impostors');
+      if (configImpostors) configImpostors.value = this.impostorCountSetting;
+      const impostorsLabel = document.getElementById('config-impostors-val');
+      if (impostorsLabel) impostorsLabel.innerText = this.impostorCountSetting;
+
+      const configSpeed = document.getElementById('config-speed');
+      if (configSpeed) configSpeed.value = this.playerSpeedSetting;
+      const speedLabel = document.getElementById('config-speed-val');
+      if (speedLabel) speedLabel.innerText = this.playerSpeedSetting;
+
+      const configCooldown = document.getElementById('config-cooldown');
+      if (configCooldown) configCooldown.value = this.killCooldownSetting;
+      const cooldownLabel = document.getElementById('config-cooldown-val');
+      if (cooldownLabel) cooldownLabel.innerText = `${this.killCooldownSetting}s`;
+
+      const configBots = document.getElementById('config-bots');
+      if (configBots) configBots.value = this.botCountSetting;
+      const botsLabel = document.getElementById('config-bots-val');
+      if (botsLabel) botsLabel.innerText = this.botCountSetting;
+
+      const configBotDiff = document.getElementById('config-bot-diff');
+      if (configBotDiff) configBotDiff.value = this.botDifficulty;
+
+      // Host updates local bot entities based on target count
+      if (this.isHost) {
+        this.syncLobbyBots();
+      }
+    });
+
+    nm.on('CHAT_MESSAGE_RECEIVED', (data) => {
+      console.log('Chat message received:', data);
+      if (window.addChatMessage) {
+        window.addChatMessage(data.senderName, data.color, data.message);
+      }
+      
+      // Authoritatively trigger bot responses on host
+      if (this.isHost && window.handlePlayerChatMessage) {
+        window.handlePlayerChatMessage(data.message);
+      }
+    });
+
+    // Bind room code copy listener
+    const roomCodeDisplay = document.getElementById('game-room-code-display');
+    if (roomCodeDisplay && !roomCodeDisplay.hasCopyListener) {
+      roomCodeDisplay.hasCopyListener = true;
+      roomCodeDisplay.addEventListener('click', () => {
+        const codeText = roomCodeDisplay.textContent.replace('Room Code: ', '').trim();
+        if (codeText && codeText !== '------') {
+          navigator.clipboard.writeText(codeText).then(() => {
+            const originalText = roomCodeDisplay.textContent;
+            roomCodeDisplay.textContent = 'Copied!';
+            roomCodeDisplay.style.color = 'var(--neon-green)';
+            setTimeout(() => {
+              roomCodeDisplay.textContent = originalText;
+              roomCodeDisplay.style.color = '';
+            }, 1500);
+          }).catch(err => {
+            console.error('Failed to copy: ', err);
+          });
+        }
+      });
+    }
   };
   
   // Create room
@@ -455,9 +656,11 @@ export function initMultiplayer(gameEngine) {
       },
       settings: {
         maxPlayers: 10,
-        impostorCount: 1,
+        impostorCount: this.impostorCountSetting || 1,
         killCooldown: this.killCooldownSetting,
-        playerSpeed: this.playerSpeedSetting
+        playerSpeed: this.playerSpeedSetting,
+        botCount: this.botCountSetting,
+        botDifficulty: this.botDifficulty || 'medium'
       }
     });
   };
@@ -496,6 +699,14 @@ export function initMultiplayer(gameEngine) {
     
     // Return to title screen
     this.gameState = 'LOBBY';
+    const roomCodeDisplay = document.getElementById('game-room-code-display');
+    if (roomCodeDisplay) roomCodeDisplay.classList.add('hidden');
+    const leaveRoomHud = document.getElementById('lobby-leave-btn-hud');
+    if (leaveRoomHud) leaveRoomHud.classList.add('hidden');
+
+    document.getElementById('game-screen').classList.add('hidden');
+    document.getElementById('title-screen').classList.remove('hidden');
+
     if (window.multiplayerUI) {
       window.multiplayerUI.hideLobby();
     }
@@ -520,6 +731,20 @@ export function initMultiplayer(gameEngine) {
       isFacingLeft: localPlayer.isFacingLeft,
       isMoving: localPlayer.isMoving
     });
+
+    // If host, sync bot position updates to the server too
+    if (this.isHost) {
+      const bots = this.entities.filter(e => e.id.startsWith('bot-')).map(bot => ({
+        id: bot.id,
+        x: bot.x,
+        y: bot.y,
+        isFacingLeft: bot.isFacingLeft,
+        isMoving: bot.isMoving
+      }));
+      if (bots.length > 0) {
+        this.networkManager.send('BOT_POSITION_UPDATE', { bots });
+      }
+    }
   };
   
   // Send action events

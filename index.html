@@ -85,6 +85,9 @@
 
   <!-- ================= Active Game Viewport ================= -->
   <div id="game-screen" class="screen hidden">
+    <!-- Room Code & Leave Room HUD overlay for Multiplayer Waiting Room -->
+    <div id="game-room-code-display" class="hidden" style="position: absolute; top: 75px; right: 20px; background: rgba(0,0,0,0.65); padding: 10px 20px; border-radius: 8px; border: 1px solid var(--glass-border); color: var(--neon-green); font-weight: 800; font-family: monospace; font-size: 1.4rem; cursor: pointer; z-index: 100; letter-spacing: 2px;" title="Click to copy room code">Room Code: ------</div>
+    <button id="lobby-leave-btn-hud" class="hidden" style="position: absolute; bottom: 20px; left: 20px; padding: 12px 24px; background: rgba(231, 76, 60, 0.85); border: 1px solid var(--neon-red); color: white; border-radius: 8px; font-weight: 800; font-family: monospace; cursor: pointer; z-index: 100; letter-spacing: 1px;" onclick="if(window.game) window.game.leaveRoom();">LEAVE ROOM</button>
     <!-- Tasks Completion Progress Bar -->
     <div class="progress-bar-container">
       <div class="progress-label">CREWMATE TASK COMPLETION</div>
@@ -511,6 +514,12 @@
             <label for="config-volume">Sound Volume:</label>
             <input type="range" id="config-volume" min="0" max="1" step="0.05" value="0.5" style="accent-color: #2ecc71;">
             <span id="config-volume-val" style="color: #f1c40f; font-weight: bold; width: 50px; text-align: right;">50%</span>
+          </div>
+
+          <div class="setting-item">
+            <label for="config-impostors">Impostor Count:</label>
+            <input type="range" id="config-impostors" min="1" max="3" step="1" value="1" style="accent-color: #2ecc71;">
+            <span id="config-impostors-val" style="color: #f1c40f; font-weight: bold; width: 50px; text-align: right;">1</span>
           </div>
 
           <div class="setting-item">

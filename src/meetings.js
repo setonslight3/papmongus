@@ -60,6 +60,12 @@ export function initMeetingUI() {
     const msg = chatInput.value.trim();
     if (!msg) return;
 
+    if (window.game && window.game.isMultiplayer) {
+      window.game.networkManager.send('CHAT_MESSAGE', { message: msg });
+      chatInput.value = '';
+      return;
+    }
+
     // Find which player is alive and can chat
     const p1 = meetingState.entities.find(e => e.id === 'P1');
     if (p1 && !p1.isDead) {
@@ -133,7 +139,9 @@ export function startMeeting(entities, reporter, bodyFound, onComplete, reported
   buildVotingCards();
   startTimer();
   if (window.game && window.game.isMultiplayer) {
-    // No bot discussion in multiplayer mode
+    if (window.game.isHost) {
+      runBotDiscussion(bodyFound, suspectEntity);
+    }
   } else {
     runBotDiscussion(bodyFound, suspectEntity);
   }
@@ -245,7 +253,10 @@ function castVote(voterId, targetId) {
 
   if (window.game && window.game.isMultiplayer) {
     // In multiplayer, send vote to server
-    window.game.sendActionEvent('vote', { targetId: targetId });
+    window.game.networkManager.send('VOTE_CAST', {
+      targetId: targetId,
+      voterId: voterId.startsWith('bot-') ? voterId : undefined
+    });
     meetingState.votes[voterId] = targetId;
     meetingState.hasVoted[voterId] = true;
     const badge = document.getElementById(`vote-badge-${voterId}`);
@@ -350,7 +361,17 @@ function runBotDiscussion(bodyFound, suspectEntity) {
           .replace('{room}', bot.lastSeenRoom || 'Security');
       }
 
-      addChatMessage(bot.nickname, bot.color, message);
+      if (window.game && window.game.isMultiplayer) {
+        window.game.networkManager.send('CHAT_MESSAGE', {
+          senderName: bot.nickname,
+          color: bot.color,
+          message: message,
+          isBot: true,
+          botId: bot.id
+        });
+      } else {
+        addChatMessage(bot.nickname, bot.color, message);
+      }
 
       // Cast the bot's vote
       setTimeout(() => {
@@ -414,10 +435,20 @@ function handlePlayerChatMessage(msg) {
           `Let's vote ${accusedBot.nickname} out then.`
         ];
         const reply = responses[Math.floor(Math.random() * responses.length)];
-        addChatMessage(helperBot.nickname, helperBot.color, reply);
         
-        // Cast helper bot's vote
-        castVote(helperBot.id, accusedBot.id);
+        if (window.game && window.game.isMultiplayer) {
+          window.game.networkManager.send('CHAT_MESSAGE', {
+            senderName: helperBot.nickname,
+            color: helperBot.color,
+            message: reply,
+            isBot: true,
+            botId: helperBot.id
+          });
+          castVote(helperBot.id, accusedBot.id);
+        } else {
+          addChatMessage(helperBot.nickname, helperBot.color, reply);
+          castVote(helperBot.id, accusedBot.id);
+        }
       }, 1000 + Math.random() * 1000);
     }
   }
@@ -548,4 +579,6 @@ function resolveMeeting() {
 if (typeof window !== 'undefined') {
   window.startMeeting = startMeeting;
   window.initMeetingUI = initMeetingUI;
+  window.addChatMessage = addChatMessage;
+  window.handlePlayerChatMessage = handlePlayerChatMessage;
 }

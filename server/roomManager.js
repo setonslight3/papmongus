@@ -258,8 +258,8 @@ class RoomManager {
       return { success: false, error: 'Room not found' };
     }
     
-    if (room.players.size < 2) {
-      return { success: false, error: 'Need at least 2 players to start' };
+    if (room.players.size + (room.settings.botCount || 0) < 2) {
+      return { success: false, error: 'Need at least 2 players/bots to start' };
     }
     
     room.state = 'PLAYING';

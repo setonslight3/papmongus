@@ -128,6 +128,18 @@ function handleMessage(clientId, data) {
     case 'COSMETIC_CHANGE':
       handleCosmeticChange(clientId, message.payload);
       break;
+    case 'SYNC_BOTS':
+      handleSyncBots(clientId, message.payload);
+      break;
+    case 'BOT_POSITION_UPDATE':
+      handleBotPositionUpdate(clientId, message.payload);
+      break;
+    case 'UPDATE_SETTINGS':
+      handleUpdateSettings(clientId, message.payload);
+      break;
+    case 'CHAT_MESSAGE':
+      handleChatMessage(clientId, message.payload);
+      break;
     default:
       console.warn(`Unknown message type: ${message.type}`);
       sendError(clientId, `Unknown message type: ${message.type}`);
@@ -141,6 +153,12 @@ function handleCreateRoom(clientId, payload) {
   if (!result.success) {
     sendError(clientId, result.error);
     return;
+  }
+
+  // Initialize GameState immediately on creation so P1 can walk around and sync in WAITING lobby state
+  const room = roomManager.getRoomByCode(result.roomCode);
+  if (room) {
+    stateManager.initializeGameState(room);
   }
   
   send(clientId, 'ROOM_CREATED', {
@@ -166,6 +184,21 @@ function handleJoinRoom(clientId, payload) {
     sendError(clientId, result.error);
     return;
   }
+
+  // Add player to GameState
+  const room = roomManager.getRoomByCode(payload.roomCode);
+  const spawnX = 25 * 32 + 16;
+  const spawnY = 20 * 32 + 16;
+  if (room && room.gameState) {
+    const newPlayer = room.gameState.addPlayer(
+      clientId,
+      result.nickname,
+      payload.playerInfo.color,
+      payload.playerInfo.equippedHat
+    );
+    newPlayer.x = spawnX + (Math.random() - 0.5) * 40;
+    newPlayer.y = spawnY + (Math.random() - 0.5) * 40;
+  }
   
   // Send confirmation to joining player
   send(clientId, 'ROOM_JOINED', {
@@ -178,12 +211,23 @@ function handleJoinRoom(clientId, payload) {
   // Broadcast to all players in room
   broadcastToRoom(payload.roomCode, 'PLAYER_JOINED', {
     playerId: clientId,
-    nickname: result.nickname,
+    player: {
+      nickname: result.nickname,
+      color: payload.playerInfo.color,
+      equippedHat: payload.playerInfo.equippedHat,
+      x: spawnX,
+      y: spawnY
+    },
     room: result.room
   }, clientId);
 }
 
 function handleLeaveRoom(clientId) {
+  const room = roomManager.getRoomByClient(clientId);
+  if (room && room.gameState) {
+    room.gameState.removePlayer(clientId);
+  }
+
   const result = roomManager.leaveRoom(clientId);
   
   if (!result.success) {
@@ -223,24 +267,28 @@ function handleStartGame(clientId) {
     return;
   }
   
-  // Initialize game state
-  const gameState = stateManager.initializeGameState(room);
+  // Run match setup state transition (teleportation, role selection, tasks)
+  const matchResult = stateManager.startMatchState(room);
   
-  // Send role assignments to each player
-  for (const [playerId, playerState] of gameState.players.entries()) {
-    send(playerId, 'GAME_STARTED', {
-      roomCode: room.code,
-      role: playerState.isImpostor ? 'impostor' : 'crewmate',
-      tasks: playerState.tasks,
-      gameState: gameState.toJSON()
-    });
+  // Send role assignments securely to each player
+  for (const [playerId, playerState] of room.gameState.players.entries()) {
+    if (!playerId.startsWith('bot-')) {
+      const isHost = (playerId === room.hostId);
+      send(playerId, 'GAME_STARTED', {
+        roomCode: room.code,
+        role: playerState.isImpostor ? 'impostor' : 'crewmate',
+        tasks: playerState.tasks,
+        botRoles: isHost ? matchResult.botRoles : undefined, // secure bot roles sync only to host client
+        gameState: room.gameState.toJSON()
+      });
+    }
   }
 }
 
 // Gameplay Handlers
 function handlePositionUpdate(clientId, payload) {
   const room = roomManager.getRoomByClient(clientId);
-  if (!room || room.state !== 'PLAYING') return;
+  if (!room || (room.state !== 'PLAYING' && room.state !== 'WAITING')) return;
   
   const result = stateManager.updatePlayerPosition(
     room.code,
@@ -338,15 +386,23 @@ function handleMeetingTriggered(clientId, payload) {
 function handleVoteCast(clientId, payload) {
   const room = roomManager.getRoomByClient(clientId);
   if (!room || room.state !== 'MEETING') return;
+
+  const voterId = payload.voterId || clientId;
+
+  // Verify only host can vote for bots
+  if (payload.voterId && room.hostId !== clientId) {
+    sendError(clientId, 'Unauthorized to vote for other entities');
+    return;
+  }
   
-  const result = stateManager.handleVote(room.code, clientId, payload.targetId);
+  const result = stateManager.handleVote(room.code, voterId, payload.targetId);
   
   if (!result.success) {
     sendError(clientId, result.error);
     return;
   }
   
-  // Check if all alive players have voted
+  // Check if all alive players (including bots) have voted
   const gameState = stateManager.getGameState(room.code);
   const alivePlayers = gameState.getAlivePlayers();
   
@@ -451,6 +507,88 @@ function handleDisconnect(clientId) {
   
   clients.delete(clientId);
   clientIPs.delete(clientId);
+}
+
+// New handlers for bots, settings, and chat message sync
+function handleSyncBots(clientId, payload) {
+  const room = roomManager.getRoomByClient(clientId);
+  if (!room || room.hostId !== clientId) return;
+  
+  room.settings.bots = payload.bots || [];
+  room.settings.botCount = room.settings.bots.length;
+
+  if (room.gameState) {
+    // Remove existing bots from GameState
+    for (const [id, playerState] of room.gameState.players.entries()) {
+      if (id.startsWith('bot-')) {
+        room.gameState.removePlayer(id);
+      }
+    }
+    // Add new bots
+    const spawnX = 25 * 32 + 16;
+    const spawnY = 20 * 32 + 16;
+    room.settings.bots.forEach(bot => {
+      const pState = room.gameState.addPlayer(bot.id, bot.nickname, bot.color, bot.equippedHat);
+      pState.x = spawnX;
+      pState.y = spawnY;
+    });
+  }
+
+  broadcastToRoom(room.code, 'ROOM_SETTINGS_UPDATED', { settings: room.settings });
+}
+
+function handleBotPositionUpdate(clientId, payload) {
+  const room = roomManager.getRoomByClient(clientId);
+  if (!room || room.hostId !== clientId || !room.gameState) return;
+
+  payload.bots.forEach(bot => {
+    const pState = room.gameState.getPlayer(bot.id);
+    if (pState) {
+      pState.updatePosition(bot.x, bot.y, bot.isFacingLeft, bot.isMoving);
+    }
+  });
+
+  room.gameState.timestamp = Date.now();
+  room.gameState.updateCounter++;
+
+  if (stateManager.shouldBroadcast(room.code)) {
+    broadcastToRoom(room.code, 'STATE_SYNC', room.gameState.toJSON());
+  }
+}
+
+function handleUpdateSettings(clientId, payload) {
+  const room = roomManager.getRoomByClient(clientId);
+  if (!room || room.hostId !== clientId) return;
+
+  room.updateSettings(payload.settings);
+  broadcastToRoom(room.code, 'ROOM_SETTINGS_UPDATED', { settings: room.settings });
+}
+
+function handleChatMessage(clientId, payload) {
+  const room = roomManager.getRoomByClient(clientId);
+  if (!room) return;
+
+  let senderName = payload.senderName;
+  let color = payload.color;
+
+  if (!payload.isBot) {
+    const player = room.getPlayer(clientId);
+    if (player) {
+      senderName = player.nickname;
+      color = player.color;
+    } else {
+      return;
+    }
+  } else {
+    if (room.hostId !== clientId) return;
+  }
+
+  broadcastToRoom(room.code, 'CHAT_MESSAGE_RECEIVED', {
+    playerId: payload.isBot ? payload.botId : clientId,
+    senderName,
+    color,
+    message: payload.message
+  });
 }
 
 // Send message to specific client
