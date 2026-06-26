@@ -146,9 +146,9 @@ class StateManager {
     
     gameState.totalTasks = totalTasks;
 
-    // Set initial spawn positions (center of map)
+    // Set initial spawn positions (center of map - Cafeteria)
     const spawnX = 25 * 32 + 16; // TILE_SIZE = 32
-    const spawnY = 20 * 32 + 16;
+    const spawnY = 6 * 32 + 16;
     let angle = 0;
     const angleStep = (2 * Math.PI) / gameState.players.size;
     

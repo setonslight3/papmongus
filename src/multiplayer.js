@@ -145,6 +145,12 @@ export function initMultiplayer(gameEngine) {
       document.getElementById('title-screen').classList.add('hidden');
       document.getElementById('game-screen').classList.remove('hidden');
       
+      // Auto-focus canvas so keyboard controls work immediately
+      const canvas = document.getElementById('game-canvas');
+      if (canvas) {
+        canvas.focus();
+      }
+      
       // Set game state to reveal
       this.gameState = 'REVEAL';
       this.revealTimer = 3500;
