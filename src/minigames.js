@@ -52,6 +52,446 @@ export function initMinigames() {
   });
 }
 
+// ==========================================
+// 4. ASTEROIDS MINIGAME LOGIC
+// ==========================================
+let asteroidsState = {
+  canvas: null,
+  ctx: null,
+  asteroids: [],
+  destroyed: 0,
+  mouseX: 0,
+  mouseY: 0,
+  targetCount: 10,
+  animationId: null
+};
+
+function startAsteroids() {
+  asteroidsState.canvas = document.getElementById('asteroids-canvas');
+  asteroidsState.ctx = asteroidsState.canvas.getContext('2d');
+  asteroidsState.destroyed = 0;
+  asteroidsState.asteroids = [];
+  
+  // Spawn asteroids
+  for (let i = 0; i < asteroidsState.targetCount; i++) {
+    asteroidsState.asteroids.push({
+      x: Math.random() * asteroidsState.canvas.width,
+      y: Math.random() * asteroidsState.canvas.height,
+      vx: (Math.random() - 0.5) * 2,
+      vy: (Math.random() - 0.5) * 2,
+      size: Math.random() * 15 + 10,
+      alive: true
+    });
+  }
+  
+  const counter = document.getElementById('asteroids-counter');
+  if (counter) counter.innerText = `Asteroids destroyed: 0 / ${asteroidsState.targetCount}`;
+  
+  drawAsteroids();
+}
+
+function drawAsteroids() {
+  const { canvas, ctx, asteroids } = asteroidsState;
+  if (!canvas) return;
+  
+  ctx.fillStyle = '#000008';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw stars
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 40; i++) {
+    const x = (i * 37 + Date.now() * 0.01) % canvas.width;
+    const y = (i * 53) % canvas.height;
+    ctx.fillRect(x, y, 2, 2);
+  }
+  
+  // Update and draw asteroids
+  asteroids.forEach(ast => {
+    if (!ast.alive) return;
+    
+    ast.x += ast.vx;
+    ast.y += ast.vy;
+    
+    // Wrap around
+    if (ast.x < 0) ast.x = canvas.width;
+    if (ast.x > canvas.width) ast.x = 0;
+    if (ast.y < 0) ast.y = canvas.height;
+    if (ast.y > canvas.height) ast.y = 0;
+    
+    // Draw asteroid
+    ctx.fillStyle = '#8b4513';
+    ctx.beginPath();
+    ctx.arc(ast.x, ast.y, ast.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#654321';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+  
+  // Draw crosshair
+  ctx.strokeStyle = '#ff0000';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(asteroidsState.mouseX - 10, asteroidsState.mouseY);
+  ctx.lineTo(asteroidsState.mouseX + 10, asteroidsState.mouseY);
+  ctx.moveTo(asteroidsState.mouseX, asteroidsState.mouseY - 10);
+  ctx.lineTo(asteroidsState.mouseX, asteroidsState.mouseY + 10);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(asteroidsState.mouseX, asteroidsState.mouseY, 15, 0, Math.PI * 2);
+  ctx.stroke();
+  
+  if (asteroidsState.destroyed < asteroidsState.targetCount) {
+    asteroidsState.animationId = requestAnimationFrame(drawAsteroids);
+  }
+}
+
+function setupAsteroidsEvents() {
+  const canvas = document.getElementById('asteroids-canvas');
+  
+  const getMousePos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: ((clientX - rect.left) / rect.width) * canvas.width,
+      y: ((clientY - rect.top) / rect.height) * canvas.height
+    };
+  };
+  
+  const handleMove = (e) => {
+    const pos = getMousePos(e);
+    asteroidsState.mouseX = pos.x;
+    asteroidsState.mouseY = pos.y;
+  };
+  
+  const handleClick = (e) => {
+    const pos = getMousePos(e);
+    
+    // Check if any asteroid was hit
+    asteroidsState.asteroids.forEach(ast => {
+      if (!ast.alive) return;
+      const dist = Math.sqrt((ast.x - pos.x) ** 2 + (ast.y - pos.y) ** 2);
+      if (dist < ast.size) {
+        ast.alive = false;
+        asteroidsState.destroyed++;
+        playTaskProgress();
+        
+        const counter = document.getElementById('asteroids-counter');
+        if (counter) counter.innerText = `Asteroids destroyed: ${asteroidsState.destroyed} / ${asteroidsState.targetCount}`;
+        
+        if (asteroidsState.destroyed >= asteroidsState.targetCount) {
+          if (asteroidsState.animationId) {
+            cancelAnimationFrame(asteroidsState.animationId);
+          }
+          setTimeout(() => {
+            closeMinigame(true);
+          }, 500);
+        }
+      }
+    });
+  };
+  
+  canvas.addEventListener('mousemove', handleMove);
+  canvas.addEventListener('click', handleClick);
+  canvas.addEventListener('touchmove', handleMove);
+  canvas.addEventListener('touchstart', handleClick);
+}
+
+// ==========================================
+// 5. FUEL ENGINES MINIGAME LOGIC
+// ==========================================
+let fuelState = {
+  btn: null,
+  fill: null,
+  status: null,
+  level: 0,
+  isHolding: false,
+  interval: null
+};
+
+function startFuel() {
+  fuelState.btn = document.getElementById('fuel-btn');
+  fuelState.fill = document.getElementById('fuel-fill');
+  fuelState.status = document.getElementById('fuel-status');
+  fuelState.level = 0;
+  fuelState.isHolding = false;
+  
+  if (fuelState.fill) fuelState.fill.style.height = '0%';
+  if (fuelState.status) fuelState.status.innerText = 'Hold the button to fill the tank';
+}
+
+function setupFuelEvents() {
+  const btn = document.getElementById('fuel-btn');
+  
+  const startHold = () => {
+    if (fuelState.level >= 100) return;
+    fuelState.isHolding = true;
+    
+    fuelState.interval = setInterval(() => {
+      fuelState.level += 2;
+      if (fuelState.level >= 100) {
+        fuelState.level = 100;
+        clearInterval(fuelState.interval);
+        if (fuelState.status) fuelState.status.innerText = 'Tank Full!';
+        playTaskComplete();
+        setTimeout(() => {
+          closeMinigame(true);
+        }, 500);
+      } else {
+        playTaskProgress();
+      }
+      
+      if (fuelState.fill) fuelState.fill.style.height = `${fuelState.level}%`;
+    }, 50);
+  };
+  
+  const endHold = () => {
+    fuelState.isHolding = false;
+    if (fuelState.interval) {
+      clearInterval(fuelState.interval);
+      fuelState.interval = null;
+    }
+  };
+  
+  btn.addEventListener('mousedown', startHold);
+  btn.addEventListener('touchstart', startHold);
+  window.addEventListener('mouseup', endHold);
+  window.addEventListener('touchend', endHold);
+}
+
+// ==========================================
+// 6. CLEAN LEAVES MINIGAME LOGIC
+// ==========================================
+let leavesState = {
+  canvas: null,
+  ctx: null,
+  leaves: [],
+  removed: 0,
+  targetCount: 6
+};
+
+function startLeaves() {
+  leavesState.canvas = document.getElementById('leaves-canvas');
+  leavesState.ctx = leavesState.canvas.getContext('2d');
+  leavesState.removed = 0;
+  leavesState.leaves = [];
+  
+  // Spawn leaves
+  for (let i = 0; i < leavesState.targetCount; i++) {
+    leavesState.leaves.push({
+      x: Math.random() * leavesState.canvas.width,
+      y: Math.random() * leavesState.canvas.height,
+      size: Math.random() * 20 + 15,
+      color: ['#2ecc71', '#27ae60', '#16a085'][Math.floor(Math.random() * 3)],
+      alive: true
+    });
+  }
+  
+  const counter = document.getElementById('leaves-counter');
+  if (counter) counter.innerText = `Leaves remaining: ${leavesState.targetCount}`;
+  
+  drawLeaves();
+}
+
+function drawLeaves() {
+  const { canvas, ctx, leaves } = leavesState;
+  if (!canvas) return;
+  
+  ctx.fillStyle = '#34495e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw filter grid
+  ctx.strokeStyle = '#2c3e50';
+  ctx.lineWidth = 2;
+  for (let x = 0; x < canvas.width; x += 30) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += 30) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+  }
+  
+  // Draw leaves
+  leaves.forEach(leaf => {
+    if (!leaf.alive) return;
+    
+    ctx.fillStyle = leaf.color;
+    ctx.beginPath();
+    ctx.ellipse(leaf.x, leaf.y, leaf.size, leaf.size * 0.6, Math.PI / 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#145a32';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
+
+function setupLeavesEvents() {
+  const canvas = document.getElementById('leaves-canvas');
+  
+  const getMousePos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: ((clientX - rect.left) / rect.width) * canvas.width,
+      y: ((clientY - rect.top) / rect.height) * canvas.height
+    };
+  };
+  
+  const handleClick = (e) => {
+    const pos = getMousePos(e);
+    
+    leavesState.leaves.forEach(leaf => {
+      if (!leaf.alive) return;
+      const dist = Math.sqrt((leaf.x - pos.x) ** 2 + (leaf.y - pos.y) ** 2);
+      if (dist < leaf.size) {
+        leaf.alive = false;
+        leavesState.removed++;
+        playTaskProgress();
+        
+        const counter = document.getElementById('leaves-counter');
+        if (counter) counter.innerText = `Leaves remaining: ${leavesState.targetCount - leavesState.removed}`;
+        
+        drawLeaves();
+        
+        if (leavesState.removed >= leavesState.targetCount) {
+          setTimeout(() => {
+            closeMinigame(true);
+          }, 500);
+        }
+      }
+    });
+  };
+  
+  canvas.addEventListener('click', handleClick);
+  canvas.addEventListener('touchstart', handleClick);
+}
+
+// ==========================================
+// 7. CALIBRATE DISTRIBUTOR MINIGAME LOGIC
+// ==========================================
+let calibrateState = {
+  canvas: null,
+  ctx: null,
+  angle: 0,
+  targetAngle: 0,
+  stage: 0,
+  totalStages: 3,
+  animationId: null
+};
+
+function startCalibrate() {
+  calibrateState.canvas = document.getElementById('calibrate-canvas');
+  calibrateState.ctx = calibrateState.canvas.getContext('2d');
+  calibrateState.angle = 0;
+  calibrateState.targetAngle = Math.random() * Math.PI * 2;
+  calibrateState.stage = 0;
+  
+  const status = document.getElementById('calibrate-status');
+  if (status) status.innerText = 'Click when the spinner aligns with the target';
+  
+  drawCalibrate();
+}
+
+function drawCalibrate() {
+  const { canvas, ctx } = calibrateState;
+  if (!canvas) return;
+  
+  ctx.fillStyle = '#1e2430';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const radius = 100;
+  
+  // Draw outer circle
+  ctx.strokeStyle = '#2c3e50';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  
+  // Draw target zone (green arc)
+  ctx.strokeStyle = '#2ecc71';
+  ctx.lineWidth = 20;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, calibrateState.targetAngle - 0.2, calibrateState.targetAngle + 0.2);
+  ctx.stroke();
+  
+  // Draw spinning needle
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(calibrateState.angle);
+  ctx.strokeStyle = '#e74c3c';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -radius);
+  ctx.stroke();
+  ctx.restore();
+  
+  // Draw stage indicator
+  ctx.fillStyle = '#ecf0f1';
+  ctx.font = '16px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(`Stage: ${calibrateState.stage + 1} / ${calibrateState.totalStages}`, centerX, centerY + radius + 30);
+  
+  // Animate
+  calibrateState.angle += 0.05;
+  if (calibrateState.angle > Math.PI * 2) calibrateState.angle -= Math.PI * 2;
+  
+  if (calibrateState.stage < calibrateState.totalStages) {
+    calibrateState.animationId = requestAnimationFrame(drawCalibrate);
+  }
+}
+
+function setupCalibrateEvents() {
+  const canvas = document.getElementById('calibrate-canvas');
+  
+  const handleClick = () => {
+    // Check if angle is close to target
+    let diff = Math.abs(calibrateState.angle - calibrateState.targetAngle);
+    if (diff > Math.PI) diff = Math.PI * 2 - diff;
+    
+    if (diff < 0.3) {
+      // Success!
+      calibrateState.stage++;
+      playTaskProgress();
+      
+      if (calibrateState.stage >= calibrateState.totalStages) {
+        if (calibrateState.animationId) {
+          cancelAnimationFrame(calibrateState.animationId);
+        }
+        setTimeout(() => {
+          closeMinigame(true);
+        }, 500);
+      } else {
+        // Next stage
+        calibrateState.targetAngle = Math.random() * Math.PI * 2;
+      }
+    } else {
+      // Failed - restart current stage
+      playTaskProgress();
+      const status = document.getElementById('calibrate-status');
+      if (status) {
+        status.innerText = 'Missed! Try again...';
+        setTimeout(() => {
+          status.innerText = 'Click when the spinner aligns with the target';
+        }, 1000);
+      }
+    }
+  };
+  
+  canvas.addEventListener('click', handleClick);
+  canvas.addEventListener('touchstart', handleClick);
+}
+
 export function openMinigame(task, onComplete) {
   currentTask = task;
   activeOnComplete = onComplete;
