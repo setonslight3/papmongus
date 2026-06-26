@@ -2,7 +2,7 @@
 import { NetworkManager } from './network.js';
 import { RemotePlayer, Player, AIBot } from './entity.js';
 import { GameMap } from './map.js';
-import { CONTROLS, TILE_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT, TASKS_LIST } from './config.js';
+import { CONTROLS, TILE_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT, TASKS_LIST, COLORS } from './config.js';
 import { updateTasksHUD } from './tasks.js';
 import { playRoleReveal, playReport } from './audio.js';
 import { closeMinigame } from './minigames.js';
