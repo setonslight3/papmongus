@@ -558,6 +558,10 @@ export function initMultiplayer(gameEngine) {
       // Hide meeting UI
       document.getElementById('meeting-overlay').classList.add('hidden');
       
+      if (window.cleanUpMeeting) {
+        window.cleanUpMeeting();
+      }
+      
       // Build ejection animation stars
       const stars = [];
       for (let i = 0; i < 40; i++) {
@@ -575,7 +579,7 @@ export function initMultiplayer(gameEngine) {
         if (data.ejectedId === this.localPlayerId) {
           ejectedEntity = this.entities.find(e => e.id === 'P1');
         } else {
-          ejectedEntity = this.remotePlayers.get(data.ejectedId);
+          ejectedEntity = this.remotePlayers.get(data.ejectedId) || this.entities.find(e => e.id === data.ejectedId);
         }
       }
       

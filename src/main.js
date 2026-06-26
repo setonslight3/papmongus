@@ -973,6 +973,8 @@ class GameEngine {
     window.addEventListener('keyup', (e) => {
       this.keys[e.code] = false;
     });
+
+    this.setupMobileControls();
   }
 
   handleKeyPress(code) {
@@ -1525,6 +1527,31 @@ class GameEngine {
     if (distTable < 60) nearBody = true;
 
     reportEl.classList.toggle('hidden', !nearBody);
+
+    // Update mobile action buttons matching P1
+    if (playerPrefix === 'P1') {
+      const mobUse = document.getElementById('mobile-action-use');
+      const mobKill = document.getElementById('mobile-action-kill');
+      const mobVent = document.getElementById('mobile-action-vent');
+      const mobReport = document.getElementById('mobile-action-report');
+
+      if (mobUse) {
+        mobUse.classList.toggle('hidden', useEl.classList.contains('hidden'));
+        mobUse.innerText = useEl.innerText.replace(/^E - /, '').replace(/^Num 1 - /, '');
+      }
+      if (mobKill) {
+        mobKill.classList.toggle('hidden', killEl.classList.contains('hidden'));
+        mobKill.innerText = killEl.innerText.replace(/^Q - /, '').replace(/^Num 3 - /, '');
+      }
+      if (mobVent) {
+        mobVent.classList.toggle('hidden', ventEl.classList.contains('hidden'));
+        mobVent.innerText = ventEl.innerText.replace(/^F - /, '').replace(/^Num 0 - /, '');
+      }
+      if (mobReport) {
+        mobReport.classList.toggle('hidden', reportEl.classList.contains('hidden'));
+        mobReport.innerText = reportEl.innerText.replace(/^R - /, '').replace(/^Num 2 - /, '');
+      }
+    }
   }
 
   toggleVent(player) {
@@ -2413,6 +2440,141 @@ class GameEngine {
     } else if (p1) {
       // Draw Single Player Reveal in the center
       drawHalfReveal(p1, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
+    }
+  }
+
+  setupMobileControls() {
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const mobileControls = document.getElementById('mobile-controls');
+    
+    if (isTouchDevice && mobileControls) {
+      mobileControls.classList.remove('hidden');
+    } else {
+      return;
+    }
+
+    const base = document.getElementById('joystick-base');
+    const stick = document.getElementById('joystick-stick');
+    if (!base || !stick) return;
+
+    let touchId = null;
+    const baseRect = base.getBoundingClientRect();
+    const centerX = baseRect.width / 2;
+    const centerY = baseRect.height / 2;
+    const maxRadius = baseRect.width / 2;
+
+    const handleJoystickTouch = (e) => {
+      e.preventDefault();
+      const touch = Array.from(e.touches).find(t => t.identifier === touchId) || e.touches[0];
+      if (!touch) return;
+
+      const rect = base.getBoundingClientRect();
+      const tx = touch.clientX - rect.left - centerX;
+      const ty = touch.clientY - rect.top - centerY;
+      const dist = Math.sqrt(tx * tx + ty * ty);
+
+      let dx = 0;
+      let dy = 0;
+      if (dist > 0) {
+        dx = tx / dist;
+        dy = ty / dist;
+      }
+
+      const moveDist = Math.min(dist, maxRadius);
+      stick.style.transform = `translate(${dx * moveDist}px, ${dy * moveDist}px)`;
+
+      const threshold = 0.25;
+      this.keys['KeyA'] = dx < -threshold;
+      this.keys['KeyD'] = dx > threshold;
+      this.keys['KeyW'] = dy < -threshold;
+      this.keys['KeyS'] = dy > threshold;
+    };
+
+    const handleJoystickEnd = (e) => {
+      e.preventDefault();
+      if (touchId !== null) {
+        const remaining = Array.from(e.touches).some(t => t.identifier === touchId);
+        if (remaining) return;
+      }
+
+      touchId = null;
+      stick.style.transform = 'translate(0px, 0px)';
+      this.keys['KeyA'] = false;
+      this.keys['KeyD'] = false;
+      this.keys['KeyW'] = false;
+      this.keys['KeyS'] = false;
+    };
+
+    base.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (touchId !== null) return;
+      touchId = e.changedTouches[0].identifier;
+      handleJoystickTouch(e);
+    });
+
+    base.addEventListener('touchmove', handleJoystickTouch);
+    base.addEventListener('touchend', handleJoystickEnd);
+    base.addEventListener('touchcancel', handleJoystickEnd);
+
+    const bindBtn = (id, action) => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        const trigger = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.triggerMobileAction(action);
+        };
+        btn.addEventListener('touchstart', trigger);
+        btn.addEventListener('click', trigger);
+      }
+    };
+
+    bindBtn('mobile-action-use', 'use');
+    bindBtn('mobile-action-kill', 'kill');
+    bindBtn('mobile-action-vent', 'vent');
+    bindBtn('mobile-action-report', 'report');
+  }
+
+  triggerMobileAction(action) {
+    const p1 = this.entities.find(e => e.id === 'P1');
+    if (!p1 || p1.isDead) return;
+
+    if (this.gameState === 'WAITING_ROOM' && action === 'use') {
+      const laptopPos = { x: 21 * TILE_SIZE + TILE_SIZE/2, y: 18 * TILE_SIZE + TILE_SIZE/2 };
+      const dist = Math.sqrt((p1.x - laptopPos.x)**2 + (p1.y - laptopPos.y)**2);
+      if (dist < 45) {
+        playClick();
+        this.openRoomConfig('P1');
+      }
+      return;
+    }
+
+    if (this.gameState !== 'PLAYING') return;
+
+    if (action === 'use') {
+      if (p1.isImpostor) {
+        this.triggerSabotage('P1');
+      } else {
+        const task = getClosestTask(p1);
+        if (task) {
+          this.gameState = 'MINIGAME';
+          openMinigame(task, (completedTask) => {
+            completedTask.completed = true;
+            this.gameState = 'PLAYING';
+            this.addTP(10);
+            if (this.isMultiplayer) {
+              this.sendActionEvent('task', { taskId: completedTask.id });
+            }
+            this.checkVictoryConditions();
+          });
+        }
+      }
+    } else if (action === 'report') {
+      this.checkForReport(p1);
+    } else if (action === 'vent' && p1.isImpostor) {
+      this.toggleVent(p1);
+    } else if (action === 'kill' && p1.isImpostor) {
+      this.attemptKill(p1);
     }
   }
 }

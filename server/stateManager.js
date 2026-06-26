@@ -521,6 +521,19 @@ class StateManager {
       }
     }
   }
+
+  // Update meeting timer
+  updateMeetingTimer(roomCode, deltaTimeMs) {
+    const gameState = this.gameStates.get(roomCode);
+    if (!gameState || !gameState.meetingState) return false;
+
+    if (gameState.meetingState.durationLeft === undefined) {
+      gameState.meetingState.durationLeft = 28000; // 28 seconds (25s voting + 3s buffer)
+    }
+
+    gameState.meetingState.durationLeft -= deltaTimeMs;
+    return gameState.meetingState.durationLeft <= 0;
+  }
 }
 
 module.exports = { StateManager, GameState, PlayerState };

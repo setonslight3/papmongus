@@ -1651,3 +1651,220 @@ body {
   box-shadow: 0 0 30px rgba(255, 0, 0, 0.3);
 }
 
+/* ================= Mobile Responsive Overrides ================= */
+
+@media (max-width: 900px) {
+  /* Dashboard layout changes to single column */
+  .dashboard-body {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    gap: 20px !important;
+    padding-bottom: 40px;
+  }
+  
+  .dashboard-menu {
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    padding: 10px !important;
+  }
+  
+  .dashboard-viewport-container {
+    width: 100% !important;
+    height: auto !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .dashboard-viewport {
+    height: 200px !important;
+    width: 100% !important;
+  }
+  
+  #menu-canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
+  .among-us-logo {
+    font-size: 2.5rem !important;
+    text-align: center;
+  }
+  
+  .dashboard-header {
+    padding: 10px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Modals and general sizes */
+  .lobby-container, .modal-content, .glass-modal-content, .lobby-modal-content {
+    width: 95vw !important;
+    padding: 15px !important;
+  }
+  
+  .color-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+  
+  .shop-items-grid, .inventory-items-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Meeting overlay adjustments */
+  .meeting-container {
+    width: 98vw !important;
+    height: 98vh !important;
+    padding: 10px !important;
+  }
+  
+  .meeting-content-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  
+  .vote-grid {
+    grid-template-columns: 1fr 1fr !important;
+    max-height: 40vh !important;
+  }
+  
+  .meeting-chat-panel {
+    max-height: 40vh !important;
+  }
+  
+  #meeting-title-text {
+    font-size: 1.2rem !important;
+  }
+  
+  /* Ejection screen adjustments */
+  .ejection-text-glow {
+    font-size: 1.2rem !important;
+  }
+  
+  /* Task bar container */
+  .progress-bar-container {
+    width: 90vw !important;
+  }
+  
+  /* HUD layout */
+  .player-hud {
+    width: 160px !important;
+    padding: 8px !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .hud-room-display {
+    font-size: 0.8rem !important;
+    margin-bottom: 4px !important;
+  }
+  
+  .task-list-box h3 {
+    font-size: 0.65rem !important;
+  }
+  
+  .task-hud-item {
+    font-size: 0.7rem !important;
+    margin-bottom: 4px !important;
+  }
+  
+  .action-hint {
+    padding: 4px 8px !important;
+    font-size: 0.65rem !important;
+  }
+}
+
+/* ================= Mobile Virtual Controls ================= */
+.mobile-controls-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 15;
+}
+
+#virtual-joystick-container {
+  position: absolute;
+  bottom: 30px;
+  left: 30px;
+  width: 120px;
+  height: 120px;
+  pointer-events: auto;
+}
+
+#joystick-base {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(22, 27, 46, 0.45);
+  border: 2px solid var(--glass-border);
+  box-shadow: var(--glass-glow);
+  position: relative;
+  touch-action: none;
+}
+
+#joystick-stick {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(0, 210, 255, 0.6);
+  border: 1px solid rgba(255,255,255,0.4);
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.8);
+  position: absolute;
+  top: 35px;
+  left: 35px;
+  pointer-events: none;
+  transition: transform 0.05s ease;
+}
+
+.mobile-action-buttons {
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 15px;
+  pointer-events: auto;
+}
+
+.mobile-btn {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  font-family: var(--font-family);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+  border: 2px solid var(--glass-border);
+  box-shadow: var(--glass-glow);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.1s, opacity 0.15s;
+  touch-action: none;
+}
+
+.mobile-btn:active {
+  transform: scale(0.9);
+  opacity: 0.8;
+}
+
+.mobile-btn.blue-btn {
+  background: rgba(52, 152, 219, 0.6);
+  border-color: rgba(52, 152, 219, 0.8);
+  box-shadow: 0 0 15px rgba(52, 152, 219, 0.4);
+}
+
+.mobile-btn.red-btn {
+  background: rgba(231, 76, 60, 0.6);
+  border-color: rgba(231, 76, 60, 0.8);
+  box-shadow: 0 0 15px rgba(231, 76, 60, 0.4);
+}
+
+.mobile-btn.yellow-btn {
+  background: rgba(241, 196, 15, 0.6);
+  border-color: rgba(241, 196, 15, 0.8);
+  box-shadow: 0 0 15px rgba(241, 196, 15, 0.4);
+}
+

@@ -303,7 +303,16 @@ function startTimer() {
 
     if (timeLeft <= 0) {
       clearInterval(meetingTimer);
-      resolveMeeting();
+      if (window.game && window.game.isMultiplayer) {
+        document.querySelectorAll('.vote-action-buttons').forEach(el => el.innerHTML = '');
+        const skipBtn1 = document.getElementById('skip-vote-btn');
+        const skipBtn2 = document.getElementById('skip-vote-btn-p2');
+        if (skipBtn1) skipBtn1.disabled = true;
+        if (skipBtn2) skipBtn2.disabled = true;
+        timerEl.innerText = `Waiting for server...`;
+      } else {
+        resolveMeeting();
+      }
     }
   }, 1000);
 }
@@ -577,9 +586,27 @@ function resolveMeeting() {
   }, 3500);
 }
 
+export function cleanUpMeeting() {
+  if (meetingTimer) {
+    clearInterval(meetingTimer);
+    meetingTimer = null;
+  }
+  const skipBtn1 = document.getElementById('skip-vote-btn');
+  const skipBtn2 = document.getElementById('skip-vote-btn-p2');
+  if (skipBtn1) skipBtn1.disabled = false;
+  if (skipBtn2) skipBtn2.disabled = false;
+  
+  const footers = document.querySelectorAll('.meeting-footer');
+  footers.forEach(footer => {
+    const revealContainers = footer.querySelectorAll('.vote-reveal-container');
+    revealContainers.forEach(container => container.remove());
+  });
+}
+
 if (typeof window !== 'undefined') {
   window.startMeeting = startMeeting;
   window.initMeetingUI = initMeetingUI;
   window.addChatMessage = addChatMessage;
   window.handlePlayerChatMessage = handlePlayerChatMessage;
+  window.cleanUpMeeting = cleanUpMeeting;
 }

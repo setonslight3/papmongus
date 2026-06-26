@@ -672,11 +672,27 @@ httpServer.listen(PORT, () => {
     rateLimiter.cleanup();
   }, 60000); // Every minute
   
-  // Update kill cooldowns
+  // Update game timers
   setInterval(() => {
     for (const room of roomManager.rooms.values()) {
-      if (room.state === 'PLAYING' && room.gameState) {
-        stateManager.updateCooldowns(room.code, 100);
+      if (room.gameState) {
+        if (room.state === 'PLAYING') {
+          stateManager.updateCooldowns(room.code, 100);
+        } else if (room.state === 'MEETING') {
+          const finished = stateManager.updateMeetingTimer(room.code, 100);
+          if (finished) {
+            // Tally votes authoritatively
+            const tallyResult = stateManager.tallyVotes(room.code);
+            room.state = 'PLAYING';
+            broadcastToRoom(room.code, 'VOTING_RESULTS', tallyResult.result);
+            
+            // Check win conditions after ejection
+            const winResult = stateManager.checkWinConditions(room.code);
+            if (winResult) {
+              handleGameEnd(room.code, winResult);
+            }
+          }
+        }
       }
     }
   }, 100); // Every 100ms
