@@ -282,16 +282,16 @@ class StateManager {
       return { success: false, error: 'Victim already dead' };
     }
 
-    if (killer.killCooldown > 0 && !killerId.startsWith('bot-')) {
+    if (killer.killCooldown > 1500 && !killerId.startsWith('bot-')) {
       return { success: false, error: 'Kill on cooldown' };
     }
 
-    // Check distance (kill range = 60 pixels)
+    // Check distance (kill range = 60 pixels, allow up to 120 pixels on server to account for network latency)
     const distance = Math.sqrt(
       Math.pow(killer.x - victim.x, 2) + Math.pow(killer.y - victim.y, 2)
     );
 
-    if (distance > 60 && !killerId.startsWith('bot-')) {
+    if (distance > 120 && !killerId.startsWith('bot-')) {
       return { success: false, error: 'Too far' };
     }
 
