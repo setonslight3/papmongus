@@ -2108,14 +2108,25 @@ class GameEngine {
     // Count stats
     let completedCount = 0;
     let totalCount = 0;
-    this.entities.filter(e => !e.isImpostor).forEach(crew => {
-      completedCount += crew.tasks ? crew.tasks.filter(t => t.completed).length : 0;
-      totalCount += crew.tasks ? crew.tasks.length : 0;
-    });
+    let aliveCount = 0;
+    let totalPlayersCount = 0;
+
+    if (this.isMultiplayer && this.multiplayerStats) {
+      completedCount = this.multiplayerStats.completedTasks;
+      totalCount = this.multiplayerStats.totalTasks;
+      aliveCount = this.multiplayerStats.aliveCount;
+      totalPlayersCount = this.multiplayerStats.totalPlayersCount;
+    } else {
+      this.entities.filter(e => !e.isImpostor).forEach(crew => {
+        completedCount += crew.tasks ? crew.tasks.filter(t => t.completed).length : 0;
+        totalCount += crew.tasks ? crew.tasks.length : 0;
+      });
+      aliveCount = this.entities.filter(e => !e.isDead).length;
+      totalPlayersCount = this.entities.length;
+    }
+
     document.getElementById('stat-tasks').innerText = `${completedCount} / ${totalCount}`;
-    
-    const aliveCount = this.entities.filter(e => !e.isDead).length;
-    document.getElementById('stat-alive').innerText = `${aliveCount} / ${this.entities.length}`;
+    document.getElementById('stat-alive').innerText = `${aliveCount} / ${totalPlayersCount}`;
 
     document.getElementById('gameover-overlay').classList.remove('hidden');
   }

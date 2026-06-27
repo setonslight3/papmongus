@@ -495,10 +495,17 @@ function handleGameEnd(roomCode, winResult) {
     };
   }
   
+  const aliveCount = gameState.getAlivePlayers().length;
+  const totalPlayersCount = gameState.players.size;
+
   broadcastToRoom(roomCode, 'GAME_ENDED', {
     winner: winResult.winner,
     reason: winResult.reason,
-    playerRoles: playerRoles
+    playerRoles: playerRoles,
+    totalTasks: gameState.totalTasks,
+    completedTasks: gameState.completedTasks,
+    aliveCount: aliveCount,
+    totalPlayersCount: totalPlayersCount
   });
   
   roomManager.endGame(roomCode, winResult.winner);

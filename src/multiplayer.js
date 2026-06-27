@@ -649,14 +649,32 @@ export function initMultiplayer(gameEngine) {
       
       // Determine banner: victory/defeat
       const p1 = this.entities.find(e => e.id === 'P1');
-      const crewWon = data.winner === 'crew';
+      const crewWon = data.winner === 'CREWMATES_WIN';
       let banner = crewWon ? 'victory' : 'defeat';
       if (p1 && p1.isImpostor) {
         banner = crewWon ? 'defeat' : 'victory';
       }
+
+      // Determine appropriate subtitle
+      let subtitle = '';
+      if (data.reason === 'All tasks completed') {
+        subtitle = 'All tasks have been completed!';
+      } else if (crewWon) {
+        subtitle = 'The Impostors have been ejected!';
+      } else {
+        subtitle = 'The Impostors took over the ship!';
+      }
+
+      // Store stats locally for triggerGameOver to display on the overlay
+      this.multiplayerStats = {
+        completedTasks: data.completedTasks,
+        totalTasks: data.totalTasks,
+        aliveCount: data.aliveCount,
+        totalPlayersCount: data.totalPlayersCount
+      };
       
       // Show game over screen (use existing gameEngine triggerGameOver method)
-      this.triggerGameOver(banner, crewWon ? 'The Impostors have been ejected!' : 'The Impostors took over the ship!');
+      this.triggerGameOver(banner, subtitle);
     });
     
     // Customization
