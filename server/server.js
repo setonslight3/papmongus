@@ -300,12 +300,6 @@ function handlePositionUpdate(clientId, payload) {
   );
   
   if (!result.success) return;
-  
-  // Throttled broadcast (20Hz)
-  if (stateManager.shouldBroadcast(room.code)) {
-    const gameState = stateManager.getGameState(room.code);
-    broadcastToRoom(room.code, 'STATE_SYNC', gameState.toJSON());
-  }
 }
 
 function handleKillAttempt(clientId, payload) {
@@ -573,10 +567,6 @@ function handleBotPositionUpdate(clientId, payload) {
 
   room.gameState.timestamp = Date.now();
   room.gameState.updateCounter++;
-
-  if (stateManager.shouldBroadcast(room.code)) {
-    broadcastToRoom(room.code, 'STATE_SYNC', room.gameState.toJSON());
-  }
 }
 
 function handleUpdateSettings(clientId, payload) {
@@ -675,6 +665,15 @@ httpServer.listen(PORT, () => {
     roomManager.cleanupStaleRooms();
     rateLimiter.cleanup();
   }, 60000); // Every minute
+
+  // Periodic state sync broadcast (20Hz = 50ms)
+  setInterval(() => {
+    for (const room of roomManager.rooms.values()) {
+      if (room.gameState && (room.state === 'PLAYING' || room.state === 'WAITING')) {
+        broadcastToRoom(room.code, 'STATE_SYNC', room.gameState.toJSON());
+      }
+    }
+  }, 50);
   
   // Update game timers
   setInterval(() => {

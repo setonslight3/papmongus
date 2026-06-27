@@ -469,7 +469,7 @@ export class RemotePlayer extends BaseEntity {
     this.interpolationSpeed = 0.3; // Smooth factor
     
     // Extrapolation limit
-    this.maxExtrapolationTime = 100; // 100ms
+    this.maxExtrapolationTime = 500; // 500ms
   }
 
   // Update target position from server
@@ -478,7 +478,7 @@ export class RemotePlayer extends BaseEntity {
     this.targetY = y;
     this.isFacingLeft = isFacingLeft;
     this.isMoving = isMoving;
-    this.lastUpdateTimestamp = timestamp;
+    this.lastUpdateTimestamp = Date.now(); // Use local arrival time to avoid host/client clock skew issues
     this.interpolationAlpha = 0;
   }
 
@@ -504,9 +504,13 @@ export class RemotePlayer extends BaseEntity {
       return;
     }
     
-    // Smooth interpolation
-    this.x += dx * this.interpolationSpeed;
-    this.y += dy * this.interpolationSpeed;
+    // Frame-rate independent smooth interpolation (e.g. LERP using deltaTime in ms)
+    // deltaTime is in ms. At 60fps, deltaTime ~ 16.6ms.
+    // We want the interpolation speed to be around 0.25 at 60fps.
+    // 1 - (1 - speed) ^ (deltaTime / 16.6)
+    const t = 1 - Math.pow(1 - 0.25, deltaTime / 16.6);
+    this.x += dx * Math.min(1, Math.max(0, t));
+    this.y += dy * Math.min(1, Math.max(0, t));
   }
 
   // Get display position (already interpolated)
