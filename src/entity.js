@@ -213,6 +213,12 @@ export class AIBot extends BaseEntity {
           this.aiState = 'IDLE';
           if (this.targetTask && !this.isImpostor) {
             this.targetTask.completed = true;
+            if (game.isMultiplayer && game.isHost) {
+              game.sendActionEvent('task', { 
+                playerId: this.id, 
+                taskId: this.targetTask.id 
+              });
+            }
           }
           this.targetTask = null;
         }

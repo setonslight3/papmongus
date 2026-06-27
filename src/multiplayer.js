@@ -359,6 +359,29 @@ export function initMultiplayer(gameEngine) {
             this.botDifficulty || 'medium'
           );
           bot.equippedHat = b.equippedHat;
+          
+          const mappedTasks = [];
+          if (b.tasks) {
+            b.tasks.forEach(taskId => {
+              const mapTask = this.map.tasks.find(t => t.id === taskId);
+              if (mapTask) {
+                mappedTasks.push({ ...mapTask, completed: false });
+              } else {
+                const taskDef = TASKS_LIST.find(t => t.id === taskId);
+                if (taskDef) {
+                  mappedTasks.push({
+                    ...taskDef,
+                    x: 0,
+                    y: 0,
+                    col: 0,
+                    row: 0,
+                    completed: false
+                  });
+                }
+              }
+            });
+          }
+          bot.tasks = mappedTasks;
           this.entities.push(bot);
         }
       }

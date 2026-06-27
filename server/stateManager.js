@@ -207,6 +207,7 @@ class StateManager {
           color: playerState.color,
           equippedHat: playerState.equippedHat,
           isImpostor: playerState.isImpostor,
+          tasks: playerState.tasks,
           x: playerState.x,
           y: playerState.y
         };

@@ -339,7 +339,11 @@ function handleTaskCompleted(clientId, payload) {
   const room = roomManager.getRoomByClient(clientId);
   if (!room || room.state !== 'PLAYING') return;
   
-  const result = stateManager.handleTaskCompletion(room.code, clientId, payload.taskId);
+  const playerId = (payload.playerId && payload.playerId.startsWith('bot-') && room.hostId === clientId)
+    ? payload.playerId
+    : clientId;
+
+  const result = stateManager.handleTaskCompletion(room.code, playerId, payload.taskId);
   
   if (!result.success) {
     sendError(clientId, result.error);
@@ -348,7 +352,7 @@ function handleTaskCompleted(clientId, payload) {
   
   // Broadcast task progress
   broadcastToRoom(room.code, 'TASK_PROGRESS', {
-    playerId: clientId,
+    playerId: playerId,
     taskId: payload.taskId,
     progress: result.progress,
     taskProgress: result.taskProgress
