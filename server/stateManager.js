@@ -281,7 +281,7 @@ class StateManager {
       return { success: false, error: 'Victim already dead' };
     }
 
-    if (killer.killCooldown > 0) {
+    if (killer.killCooldown > 0 && !killerId.startsWith('bot-')) {
       return { success: false, error: 'Kill on cooldown' };
     }
 
@@ -290,7 +290,7 @@ class StateManager {
       Math.pow(killer.x - victim.x, 2) + Math.pow(killer.y - victim.y, 2)
     );
 
-    if (distance > 60) {
+    if (distance > 60 && !killerId.startsWith('bot-')) {
       return { success: false, error: 'Too far' };
     }
 

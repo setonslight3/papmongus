@@ -495,6 +495,27 @@ export function initMultiplayer(gameEngine) {
           botVictim.isGhost = true;
         }
       }
+
+      // Run kill animation if local player is involved
+      let victimObj = null;
+      if (data.victimId === this.localPlayerId) {
+        victimObj = this.entities.find(e => e.id === 'P1');
+      } else {
+        victimObj = this.remotePlayers.get(data.victimId) || this.entities.find(e => e.id === data.victimId);
+      }
+
+      let killerObj = null;
+      if (data.killerId === this.localPlayerId) {
+        killerObj = this.entities.find(e => e.id === 'P1');
+      } else {
+        killerObj = this.remotePlayers.get(data.killerId) || this.entities.find(e => e.id === data.killerId);
+      }
+
+      const p1Involved = (data.victimId === this.localPlayerId || data.killerId === this.localPlayerId);
+      if (p1Involved && victimObj) {
+        const fallbackKiller = killerObj || { color: '#000000', equippedHat: null };
+        this.runKillAnimation(victimObj, fallbackKiller);
+      }
     });
     
     nm.on('TASK_PROGRESS', (data) => {

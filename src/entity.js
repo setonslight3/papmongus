@@ -370,8 +370,12 @@ export class AIBot extends BaseEntity {
   checkForIsolationKill(game) {
     if (this.killCooldown > 0) return;
 
-    // Scan for any alive crewmates nearby
-    const targets = game.entities.filter(e => !e.isImpostor && !e.isDead);
+    // Scan for any alive crewmates nearby (both bots/local players in game.entities, and other players in game.remotePlayers)
+    let targets = game.entities.filter(e => !e.isImpostor && !e.isDead);
+    if (game.isMultiplayer && game.remotePlayers) {
+      const remoteTargets = Array.from(game.remotePlayers.values()).filter(e => !e.isImpostor && !e.isDead);
+      targets = [...targets, ...remoteTargets];
+    }
     
     for (const target of targets) {
       const dx = target.x - this.x;
@@ -381,7 +385,11 @@ export class AIBot extends BaseEntity {
       if (dist < KILL_RANGE) {
         // Can we kill them in secret?
         // Ensure no other alive crewmate sees us (within vision raycast polygon of other players)
-        const witnesses = game.entities.filter(e => e.id !== this.id && e.id !== target.id && !e.isDead);
+        let witnesses = game.entities.filter(e => e.id !== this.id && e.id !== target.id && !e.isDead);
+        if (game.isMultiplayer && game.remotePlayers) {
+          const remoteWitnesses = Array.from(game.remotePlayers.values()).filter(e => e.id !== this.id && e.id !== target.id && !e.isDead);
+          witnesses = [...witnesses, ...remoteWitnesses];
+        }
         let seenByWitness = false;
 
         for (const witness of witnesses) {

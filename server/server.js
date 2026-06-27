@@ -315,7 +315,11 @@ function handleKillAttempt(clientId, payload) {
     return;
   }
   
-  const result = stateManager.handleKillAttempt(room.code, clientId, payload.victimId);
+  const killerId = (payload.killerId && payload.killerId.startsWith('bot-') && room.hostId === clientId)
+    ? payload.killerId
+    : clientId;
+
+  const result = stateManager.handleKillAttempt(room.code, killerId, payload.victimId);
   
   if (!result.success) {
     sendError(clientId, result.error);
@@ -324,7 +328,7 @@ function handleKillAttempt(clientId, payload) {
   
   // Broadcast kill to all players
   broadcastToRoom(room.code, 'KILL_CONFIRMED', {
-    killerId: clientId,
+    killerId: killerId,
     victimId: payload.victimId,
     bodyX: result.bodyX,
     bodyY: result.bodyY

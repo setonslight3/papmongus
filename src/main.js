@@ -1637,6 +1637,14 @@ class GameEngine {
   }
 
   killPlayer(victim, killer = null) {
+    if (this.isMultiplayer && this.isHost && killer && killer.id.startsWith('bot-')) {
+      this.sendActionEvent('kill', { 
+        killerId: killer.id, 
+        victimId: victim.id === 'P1' ? this.localPlayerId : victim.id 
+      });
+      return;
+    }
+
     victim.isDead = true;
     victim.isGhost = true; // Turn into ghost for visibility specs
     
