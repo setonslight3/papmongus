@@ -119,6 +119,18 @@ class StateManager {
       );
     }
 
+    // Add all bots from room settings
+    if (room.settings && room.settings.bots) {
+      room.settings.bots.forEach(bot => {
+        gameState.addPlayer(
+          bot.id,
+          bot.nickname,
+          bot.color,
+          bot.equippedHat
+        );
+      });
+    }
+
     // Set initial spawn positions inside dropship waiting room cabin
     const spawnX = 25 * 32 + 16; // TILE_SIZE = 32
     const spawnY = 20 * 32 + 16;
@@ -156,8 +168,11 @@ class StateManager {
     gameState.deadBodies = [];
     gameState.completedTasks = 0;
 
-    // Assign Impostor Roles among all players (humans + bots)
-    const candidates = Array.from(gameState.players.values());
+    // Assign Impostor Roles among human players first if available, otherwise include bots
+    let candidates = Array.from(gameState.players.values()).filter(p => !p.id.startsWith('bot-'));
+    if (candidates.length === 0) {
+      candidates = Array.from(gameState.players.values());
+    }
     const impostorCount = room.settings.impostorCount || 1;
     
     // Choose impostors randomly

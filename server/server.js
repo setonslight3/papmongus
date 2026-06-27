@@ -244,6 +244,14 @@ function handleLeaveRoom(clientId) {
       newHostId: result.newHostId,
       room: result.room
     });
+
+    // Check win conditions after player leaves
+    if (room.state === 'PLAYING') {
+      const winResult = stateManager.checkWinConditions(room.code);
+      if (winResult) {
+        handleGameEnd(room.code, winResult);
+      }
+    }
   }
 }
 
@@ -265,6 +273,11 @@ function handleStartGame(clientId) {
   if (!result.success) {
     sendError(clientId, result.error);
     return;
+  }
+  
+  // Re-initialize GameState if it was deleted (e.g. from previous match end)
+  if (!room.gameState) {
+    stateManager.initializeGameState(room);
   }
   
   // Run match setup state transition (teleportation, role selection, tasks)
@@ -530,6 +543,14 @@ function handleDisconnect(clientId) {
         playerId: clientId,
         newHostId: result.newHostId
       });
+
+      // Check win conditions after player disconnects
+      if (room.state === 'PLAYING') {
+        const winResult = stateManager.checkWinConditions(room.code);
+        if (winResult) {
+          handleGameEnd(room.code, winResult);
+        }
+      }
     }
   }
   
