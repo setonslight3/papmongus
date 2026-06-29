@@ -89,6 +89,7 @@ class GameEngine {
     this.roomCode = null;
     this.isHost = false;
     this.remotePlayers = new Map(); // playerId -> RemotePlayer
+    this.impostorIds = [];
     this.localPlayerId = null;
     this.lastPositionUpdate = 0;
     this.positionUpdateInterval = 50; // 20Hz = 50ms
@@ -2280,13 +2281,22 @@ class GameEngine {
     // 3. Draw Map Walls layer on top of fog of war shadow
     this.map.draw(this.ctx, camera, 'walls');
 
+    // Helper to determine if an entity name should be red (only visible to other Impostors)
+    const localPlayer = this.entities.find(e => e.id === 'P1');
+    const isLocalImpostor = localPlayer && localPlayer.isImpostor;
+    const getIsNameRed = (ent) => {
+      if (!isLocalImpostor) return false;
+      const realId = ent.id === 'P1' ? this.localPlayerId : ent.id;
+      return ent.isImpostor || (this.impostorIds && this.impostorIds.includes(realId));
+    };
+
     // 4. Draw Alive entities inside visibility range
     this.entities.forEach(ent => {
       if (!ent.isDead && !ent.isVenting) {
         // Draw player's own crewmate, or any entity within their visibility polygon
         const isVisible = this.gameState === 'WAITING_ROOM' || player.isGhost || ent.id === player.id || player.isInVisibilityPolygon(ent.x, ent.y, player.visibilityPoints);
         if (isVisible) {
-          drawCrewmate(this.ctx, ent.x, ent.y, ent.color, ent.isFacingLeft, ent.isMoving, false, false, ent.nickname, ent.equippedHat);
+          drawCrewmate(this.ctx, ent.x, ent.y, ent.color, ent.isFacingLeft, ent.isMoving, false, false, ent.nickname, ent.equippedHat, getIsNameRed(ent));
         }
       }
     });
@@ -2297,7 +2307,7 @@ class GameEngine {
         if (!remotePlayer.isDead && !remotePlayer.isVenting) {
           const isVisible = this.gameState === 'WAITING_ROOM' || player.isGhost || player.isInVisibilityPolygon(remotePlayer.x, remotePlayer.y, player.visibilityPoints);
           if (isVisible) {
-            drawCrewmate(this.ctx, remotePlayer.x, remotePlayer.y, remotePlayer.color, remotePlayer.isFacingLeft, remotePlayer.isMoving, false, false, remotePlayer.nickname, remotePlayer.equippedHat);
+            drawCrewmate(this.ctx, remotePlayer.x, remotePlayer.y, remotePlayer.color, remotePlayer.isFacingLeft, remotePlayer.isMoving, false, false, remotePlayer.nickname, remotePlayer.equippedHat, getIsNameRed(remotePlayer));
           }
         }
       });
@@ -2307,7 +2317,7 @@ class GameEngine {
     this.entities.forEach(ent => {
       if (ent.isDead && ent.isGhost) {
         if (player.isGhost) {
-          drawCrewmate(this.ctx, ent.x, ent.y, ent.color, ent.isFacingLeft, ent.isMoving, false, true, ent.nickname, ent.equippedHat);
+          drawCrewmate(this.ctx, ent.x, ent.y, ent.color, ent.isFacingLeft, ent.isMoving, false, true, ent.nickname, ent.equippedHat, getIsNameRed(ent));
         }
       }
     });
@@ -2315,7 +2325,7 @@ class GameEngine {
     if (this.isMultiplayer && player.isGhost) {
       this.remotePlayers.forEach(remotePlayer => {
         if (remotePlayer.isDead) {
-          drawCrewmate(this.ctx, remotePlayer.x, remotePlayer.y, remotePlayer.color, remotePlayer.isFacingLeft, remotePlayer.isMoving, false, true, remotePlayer.nickname, remotePlayer.equippedHat);
+          drawCrewmate(this.ctx, remotePlayer.x, remotePlayer.y, remotePlayer.color, remotePlayer.isFacingLeft, remotePlayer.isMoving, false, true, remotePlayer.nickname, remotePlayer.equippedHat, getIsNameRed(remotePlayer));
         }
       });
     }

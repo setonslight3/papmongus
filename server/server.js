@@ -287,10 +287,18 @@ function handleStartGame(clientId) {
   for (const [playerId, playerState] of room.gameState.players.entries()) {
     if (!playerId.startsWith('bot-')) {
       const isHost = (playerId === room.hostId);
+      
+      // Securely share list of fellow impostor IDs only with impostors
+      let impostorIds = [];
+      if (playerState.isImpostor) {
+        impostorIds = room.gameState.getImpostors().map(p => p.id);
+      }
+
       send(playerId, 'GAME_STARTED', {
         roomCode: room.code,
         role: playerState.isImpostor ? 'impostor' : 'crewmate',
         tasks: playerState.tasks,
+        impostorIds: impostorIds,
         botRoles: isHost ? matchResult.botRoles : undefined, // secure bot roles sync only to host client
         gameState: room.gameState.toJSON()
       });

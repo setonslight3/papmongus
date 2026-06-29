@@ -5,7 +5,7 @@ import { COLORS } from './config.js';
  * Draws a pixel-art style crewmate on the canvas context.
  * Size is roughly 24x30 pixels.
  */
-export function drawCrewmate(ctx, x, y, color, isFacingLeft, isMoving, isDead, isGhost, nickname = '', equippedHat = null) {
+export function drawCrewmate(ctx, x, y, color, isFacingLeft, isMoving, isDead, isGhost, nickname = '', equippedHat = null, isNameRed = false) {
   ctx.save();
   ctx.translate(x, y);
 
@@ -140,7 +140,7 @@ export function drawCrewmate(ctx, x, y, color, isFacingLeft, isMoving, isDead, i
   // Draw name/nickname above character (unflipped)
   if (nickname) {
     ctx.save();
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = isNameRed ? '#ff2a2a' : '#ffffff';
     ctx.font = '10px "Courier New", monospace';
     ctx.textAlign = 'center';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';

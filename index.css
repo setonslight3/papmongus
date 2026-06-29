@@ -1880,3 +1880,147 @@ body {
   }
 }
 
+/* ================= Device Orientation Prompt ================= */
+.orientation-prompt-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #06070c;
+  z-index: 99999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  font-family: 'Courier New', Courier, monospace;
+  text-align: center;
+}
+.orientation-prompt-overlay.hidden {
+  display: none;
+}
+.prompt-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+}
+.rotate-icon {
+  font-size: 5rem;
+  animation: rotatePhone 2s ease-in-out infinite;
+}
+@keyframes rotatePhone {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
+}
+.prompt-text {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #2ecc71;
+  text-shadow: 0 0 10px rgba(46, 204, 113, 0.4);
+}
+
+/* Show it on mobile (touch devices) in portrait mode */
+@media (max-width: 768px) and (orientation: portrait) {
+  .orientation-prompt-overlay {
+    display: flex !important;
+  }
+}
+
+/* ================= Mobile Landscape Optimization ================= */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Hide rotation prompt in landscape */
+  .orientation-prompt-overlay {
+    display: none !important;
+  }
+
+  /* Fullscreen-esque Canvas */
+  #game-canvas {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    object-fit: contain;
+  }
+
+  /* Progress Bar Container */
+  .progress-bar-container {
+    top: 5px !important;
+    padding: 3px 8px !important;
+    max-width: 50vw !important;
+    font-size: 0.6rem !important;
+    border-radius: 10px !important;
+  }
+  .progress-label {
+    font-size: 0.55rem !important;
+    margin-bottom: 2px !important;
+  }
+  .progress-track {
+    height: 6px !important;
+  }
+
+  /* HUD Layout Adjustments */
+  .player-hud {
+    top: 40px !important;
+    width: 130px !important;
+    max-height: calc(100vh - 85px) !important;
+    padding: 5px !important;
+    font-size: 0.65rem !important;
+    background: rgba(11, 13, 25, 0.7) !important;
+  }
+  #p1-hud {
+    left: 10px !important;
+  }
+  #p2-hud {
+    right: 10px !important;
+  }
+  .hud-room-display {
+    font-size: 0.7rem !important;
+    margin-bottom: 2px !important;
+    padding: 2px 4px !important;
+  }
+  .task-list-box h3 {
+    font-size: 0.6rem !important;
+    margin-bottom: 3px !important;
+  }
+  .task-hud-item {
+    font-size: 0.6rem !important;
+    margin-bottom: 2px !important;
+  }
+
+  /* Virtual Joystick sizing */
+  #virtual-joystick-container {
+    bottom: 10px !important;
+    left: 10px !important;
+    width: 80px !important;
+    height: 80px !important;
+  }
+  #joystick-base {
+    width: 80px !important;
+    height: 80px !important;
+  }
+  #joystick-stick {
+    width: 32px !important;
+    height: 32px !important;
+    top: 24px !important;
+    left: 24px !important;
+  }
+
+  /* Action Buttons sizing */
+  .mobile-action-buttons {
+    bottom: 10px !important;
+    right: 10px !important;
+    gap: 8px !important;
+  }
+  .mobile-btn {
+    width: 50px !important;
+    height: 50px !important;
+    font-size: 0.65rem !important;
+  }
+}
+

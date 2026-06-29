@@ -293,6 +293,7 @@ export function initMultiplayer(gameEngine) {
       // Set game state to reveal
       this.gameState = 'REVEAL';
       this.revealTimer = 3500;
+      this.impostorIds = data.impostorIds || [];
       
       // Initialize map
       this.map = new GameMap(false); // isWaitingRoom = false
